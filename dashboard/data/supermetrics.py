@@ -27,7 +27,10 @@ def detectar_pais(campana: str, adset: str = "") -> str:
     """
     c = str(campana)
     a = str(adset)
+    cu = c.upper()
+    au = a.upper()
 
+    # Formato estándar: [Letra][Número][País]-...
     if re.match(r'^[A-Z][0-9]+L-', c):
         return "Chile"
     if re.match(r'^[A-Z][0-9]+X-', c):
@@ -37,14 +40,16 @@ def detectar_pais(campana: str, adset: str = "") -> str:
     if re.match(r'^[A-Z][0-9]+E-', c):
         return "Peru"
     if re.match(r'^L[0-9]+T-', c):
-        if "CL" in a.upper():
+        if "CL" in au:
             return "Chile"
-        if "MX" in a.upper():
+        if "MX" in au:
             return "Mexico"
-        if "UY" in a.upper():
+        if "UY" in au:
             return "Uruguay"
-        if "PE" in a.upper():
+        if "PE" in au:
             return "Peru"
+
+    # Nombre completo del país
     if "chile" in c.lower():
         return "Chile"
     if "mexico" in c.lower() or "méxico" in c.lower():
@@ -53,14 +58,35 @@ def detectar_pais(campana: str, adset: str = "") -> str:
         return "Peru"
     if "uruguay" in c.lower():
         return "Uruguay"
-    # Prefijos cortos: CL-, MX-, UY-, PE-
-    if re.match(r'^CL[-_]', c):
+
+    # Prefijo corto (case-insensitive): CL-, MX-, UY-, PE-
+    if re.match(r'^CL[-_]', cu):
         return "Chile"
-    if re.match(r'^MX[-_]', c):
+    if re.match(r'^MX[-_]', cu):
         return "Mexico"
-    if re.match(r'^UY[-_]', c):
+    if re.match(r'^UY[-_]', cu):
         return "Uruguay"
-    if re.match(r'^PE[-_]', c):
+    if re.match(r'^PE[-_]', cu):
+        return "Peru"
+
+    # Código de país en medio del nombre: -CL-, -CL_fin, etc.
+    if re.search(r'[-_]CL[-_]|[-_]CL$', cu):
+        return "Chile"
+    if re.search(r'[-_]MX[-_]|[-_]MX$', cu):
+        return "Mexico"
+    if re.search(r'[-_]UY[-_]|[-_]UY$', cu):
+        return "Uruguay"
+    if re.search(r'[-_]PE[-_]|[-_]PE$', cu):
+        return "Peru"
+
+    # Buscar en el adset si la campaña no tiene indicador
+    if re.search(r'[-_]CL[-_\d]|[-_]CL$|^CL[-_]', au):
+        return "Chile"
+    if re.search(r'[-_]MX[-_\d]|[-_]MX$|^MX[-_]', au):
+        return "Mexico"
+    if re.search(r'[-_]UY[-_\d]|[-_]UY$|^UY[-_]', au):
+        return "Uruguay"
+    if re.search(r'[-_]PE[-_\d]|[-_]PE$|^PE[-_]', au):
         return "Peru"
 
     return "Sin identificar"
