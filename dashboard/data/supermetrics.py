@@ -172,7 +172,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         ["adcampaign_name", "adset_name", "ad_name",
          "creative_thumbnail_url", "video_asset_thumbnail_url",
          "cost_usd", "onsite_conversion.lead_grouped",
-         "impressions", "reach", "unique_action_link_click"],
+         "impressions", "reach", "unique_action_link_click", "unique_outbound_clicks"],
         fecha_inicio, fecha_fin,
     )
     if df.empty:
@@ -188,18 +188,22 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         "On-Facebook leads":         "leads",
         "Impressions":               "impresiones",
         "Reach":                     "alcance",
-        "Unique link clicks":        "clicks_unicos",
+        "Unique link clicks":     "clicks_link",
+        "Unique outbound clicks": "clicks_outbound",
     })
 
-    for col in ("thumbnail", "thumbnail_video", "clicks_unicos"):
+    for col in ("thumbnail", "thumbnail_video", "clicks_link", "clicks_outbound"):
         if col not in df.columns:
             df[col] = "" if col in ("thumbnail", "thumbnail_video") else 0
 
-    df["gasto"]         = pd.to_numeric(df["gasto"],         errors="coerce").fillna(0)
-    df["leads"]         = pd.to_numeric(df["leads"],         errors="coerce").fillna(0).astype(int)
-    df["impresiones"]   = pd.to_numeric(df["impresiones"],   errors="coerce").fillna(0)
-    df["alcance"]       = pd.to_numeric(df["alcance"],       errors="coerce").fillna(0)
-    df["clicks_unicos"] = pd.to_numeric(df["clicks_unicos"], errors="coerce").fillna(0)
+    df["gasto"]           = pd.to_numeric(df["gasto"],           errors="coerce").fillna(0)
+    df["leads"]           = pd.to_numeric(df["leads"],           errors="coerce").fillna(0).astype(int)
+    df["impresiones"]     = pd.to_numeric(df["impresiones"],     errors="coerce").fillna(0)
+    df["alcance"]         = pd.to_numeric(df["alcance"],         errors="coerce").fillna(0)
+    df["clicks_link"]     = pd.to_numeric(df["clicks_link"],     errors="coerce").fillna(0)
+    df["clicks_outbound"] = pd.to_numeric(df["clicks_outbound"], errors="coerce").fillna(0)
+    # Usar el mayor entre link clicks y outbound clicks
+    df["clicks_unicos"]   = df[["clicks_link", "clicks_outbound"]].max(axis=1)
     df["pais"]          = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
     df["imagen"]        = df.apply(
         lambda r: r["thumbnail"] if str(r["thumbnail"]).startswith("http")
@@ -215,7 +219,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
             impresiones  =("impresiones",   "sum"),
             alcance      =("alcance",       "sum"),
             clicks_unicos=("clicks_unicos", "sum"),
-            imagen       =("imagen",        "first"),
+            imagen       =("imagen",        "last"),
         )
         .reset_index()
     )
