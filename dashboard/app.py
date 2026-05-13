@@ -5,9 +5,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 import streamlit as st
 from datetime import date
 
-from data.connector import get_resumen_por_pais, get_campanas
+from data.connector import get_resumen_por_pais, get_campanas, get_rendimiento
 from components.charts import render_kpi_cards, render_tabla_mensual
 from components.campanas import render_campanas
+from components.rendimiento import render_rendimiento
 from config import PAISES
 
 st.set_page_config(
@@ -44,7 +45,7 @@ fecha_inicio, fecha_fin = (rango[0], rango[1]) if isinstance(rango, (list, tuple
 st.divider()
 
 # ── Pestañas ───────────────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(["Control Diario", "Campañas por País"])
+tab1, tab2, tab3 = st.tabs(["Control Diario", "Campañas por País", "Rendimiento"])
 
 with tab1:
     with st.spinner("Cargando datos..."):
@@ -63,3 +64,13 @@ with tab2:
         df_campanas = get_campanas(fecha_inicio, fecha_fin)
 
     render_campanas(df_campanas, pais_sel)
+
+with tab3:
+    col_pais3, _ = st.columns([1, 3])
+    with col_pais3:
+        pais_rend = st.selectbox("País ", list(PAISES.keys()), label_visibility="collapsed")
+
+    with st.spinner("Cargando rendimiento..."):
+        df_rend = get_rendimiento(fecha_inicio, fecha_fin)
+
+    render_rendimiento(df_rend, pais_rend)

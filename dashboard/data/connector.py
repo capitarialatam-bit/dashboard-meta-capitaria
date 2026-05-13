@@ -57,3 +57,28 @@ def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     except Exception as e:
         print(f"[connector] Error campañas: {e}")
         return _mock_campanas()
+
+
+def _mock_rendimiento() -> pd.DataFrame:
+    return pd.DataFrame([
+        {"pais": "Chile", "campana": "C004L-MC001", "anuncio": "Anuncio imagen 1", "imagen": "",
+         "leads": 40, "costo_lead": 6.5,  "cpm": 8.2,  "ctr": 2.1, "frecuencia": 1.2},
+        {"pais": "Chile", "campana": "C004L-MC001", "anuncio": "Anuncio imagen 2", "imagen": "",
+         "leads": 34, "costo_lead": 7.1,  "cpm": 12.4, "ctr": 1.3, "frecuencia": 1.8},
+        {"pais": "Chile", "campana": "C007L-EB001", "anuncio": "Anuncio video 1",  "imagen": "",
+         "leads": 20, "costo_lead": 18.2, "cpm": 16.5, "ctr": 0.8, "frecuencia": 2.8},
+        {"pais": "Mexico","campana": "C029L-MC005", "anuncio": "Anuncio imagen 1", "imagen": "",
+         "leads": 32, "costo_lead": 2.26, "cpm": 7.1,  "ctr": 3.2, "frecuencia": 1.1},
+    ])
+
+
+def get_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+    if not API_KEY:
+        return _mock_rendimiento()
+    try:
+        from data.supermetrics import query_rendimiento
+        df = query_rendimiento(fecha_inicio, fecha_fin)
+        return df if not df.empty else _mock_rendimiento()
+    except Exception as e:
+        print(f"[connector] Error rendimiento: {e}")
+        return _mock_rendimiento()
