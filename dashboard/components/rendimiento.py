@@ -49,14 +49,14 @@ def _metrics_inline(leads, costo, ctr, freq, cpm):
 
 def _agg_metrics(rows):
     leads = rows["leads"].sum()
-    gasto = rows["gasto"].sum() if "gasto" in rows.columns else 0
-    imp   = rows["impresiones"].sum() if "impresiones" in rows.columns else 0
-    alc   = rows["alcance"].sum() if "alcance" in rows.columns else 0
-    ctr_p = rows["ctr_pond"].sum() if "ctr_pond" in rows.columns else 0
+    gasto = rows["gasto"].sum()
+    imp   = rows["impresiones"].sum()
+    alc   = rows["alcance"].sum()
+    ctr_p = rows["ctr_pond"].sum()
     costo = gasto / leads if leads > 0 else 0
-    cpm   = (gasto / imp) * 1000 if imp > 0 else rows["cpm"].mean() if "cpm" in rows.columns else 0
-    ctr   = ctr_p / imp if imp > 0 else rows["ctr"].mean() if "ctr" in rows.columns else 0
-    freq  = imp / alc if alc > 0 else rows["frecuencia"].mean() if "frecuencia" in rows.columns else 0
+    cpm   = (gasto / imp) * 1000 if imp > 0 else 0
+    ctr   = ctr_p / imp if imp > 0 else 0
+    freq  = imp / alc if alc > 0 else 0
     return leads, costo, ctr, freq, cpm
 
 

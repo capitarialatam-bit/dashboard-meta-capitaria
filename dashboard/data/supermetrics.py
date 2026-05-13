@@ -212,7 +212,12 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
                   else r["thumbnail_video"], axis=1
     )
 
-    # Agrupar por anuncio; tomar la primera imagen no vacía
+    def _primera_imagen(series):
+        for v in series:
+            if str(v).startswith("http"):
+                return v
+        return ""
+
     agg = (
         df.groupby(["pais", "campana", "adset", "anuncio"])
         .agg(
@@ -221,7 +226,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
             impresiones=("impresiones", "sum"),
             alcance    =("alcance",     "sum"),
             ctr_pond   =("ctr_pond",    "sum"),
-            imagen     =("imagen",      "last"),
+            imagen     =("imagen",      _primera_imagen),
         )
         .reset_index()
     )
@@ -237,4 +242,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     agg["frecuencia"] = agg.apply(
         lambda r: r["impresiones"] / r["alcance"] if r["alcance"] > 0 else 0, axis=1
     )
-    return agg[["pais", "campana", "adset", "anuncio", "imagen", "leads", "costo_lead", "cpm", "ctr", "frecuencia"]]
+    # Retornar columnas numéricas necesarias para agregar en el componente
+    return agg[["pais", "campana", "adset", "anuncio", "imagen",
+                "leads", "gasto", "impresiones", "alcance", "ctr_pond",
+                "costo_lead", "cpm", "ctr", "frecuencia"]]
