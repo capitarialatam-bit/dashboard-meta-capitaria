@@ -142,7 +142,8 @@ def _run_query(fields: list, fecha_inicio: date, fecha_fin: date) -> pd.DataFram
 def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """Resumen por país usando nomenclatura de campañas."""
     df = _run_query(
-        ["Date", "adcampaign_name", "adset_name", "cost_usd", "onsite_conversion.lead_grouped"],
+        ["Date", "adcampaign_name", "adset_name", "cost_usd",
+         "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
         fecha_inicio, fecha_fin,
     )
     if df.empty:
@@ -152,11 +153,14 @@ def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         "Campaign name": "campana",
         "Ad set name": "adset",
         "Cost (USD)": "gasto",
-        "On-Facebook leads": "leads",
+        "On-Facebook leads": "leads_form",
+        "Website leads": "leads_web",
     })
     df["fecha"] = pd.to_datetime(df["Date"]).dt.date
-    df["gasto"] = pd.to_numeric(df["gasto"], errors="coerce").fillna(0)
-    df["leads"] = pd.to_numeric(df["leads"], errors="coerce").fillna(0).astype(int)
+    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"] = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]  = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
+    df["leads"]      = (df["leads_form"] + df["leads_web"]).astype(int)
     df["pais"] = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
     df = df[~df["campana"].str.upper().str.contains("-EP", na=False)]
     return df[["fecha", "pais", "gasto", "leads"]]
@@ -165,7 +169,8 @@ def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 def query_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """Desglose por campaña con país detectado por nomenclatura."""
     df = _run_query(
-        ["adcampaign_name", "adset_name", "cost_usd", "onsite_conversion.lead_grouped"],
+        ["adcampaign_name", "adset_name", "cost_usd",
+         "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
         fecha_inicio, fecha_fin,
     )
     if df.empty:
@@ -175,11 +180,14 @@ def query_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         "Campaign name": "campana",
         "Ad set name": "adset",
         "Cost (USD)": "gasto",
-        "On-Facebook leads": "leads",
+        "On-Facebook leads": "leads_form",
+        "Website leads": "leads_web",
     })
-    df["gasto"]  = pd.to_numeric(df["gasto"],  errors="coerce").fillna(0)
-    df["leads"]  = pd.to_numeric(df["leads"],  errors="coerce").fillna(0).astype(int)
-    df["pais"]   = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"] = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]  = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
+    df["leads"]      = (df["leads_form"] + df["leads_web"]).astype(int)
+    df["pais"]       = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
 
     resultado = (
         df.groupby(["pais", "campana"])
@@ -197,7 +205,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     df = _run_query(
         ["adcampaign_name", "adset_name", "ad_name",
          "creative_thumbnail_url", "video_asset_thumbnail_url",
-         "cost_usd", "onsite_conversion.lead_grouped",
+         "cost_usd", "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead",
          "impressions", "reach", "unique_link_CTR", "unique_outbound_CTR"],
         fecha_inicio, fecha_fin,
     )
@@ -211,7 +219,8 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         "Ad creative thumbnail URL": "thumbnail",
         "Video asset thumbnail URL": "thumbnail_video",
         "Cost (USD)":                "gasto",
-        "On-Facebook leads":         "leads",
+        "On-Facebook leads":         "leads_form",
+        "Website leads":             "leads_web",
         "Impressions":               "impresiones",
         "Reach":                     "alcance",
         "Unique CTR (link click-through rate)":     "ctr_link",
@@ -222,8 +231,10 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = "" if col in ("thumbnail", "thumbnail_video") else 0
 
-    df["gasto"]        = pd.to_numeric(df["gasto"],        errors="coerce").fillna(0)
-    df["leads"]        = pd.to_numeric(df["leads"],        errors="coerce").fillna(0).astype(int)
+    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"] = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]  = pd.to_numeric(df["leads_web"] if "leads_web" in df.columns else 0, errors="coerce").fillna(0)
+    df["leads"]      = (df["leads_form"] + df["leads_web"]).astype(int)
     df["impresiones"]  = pd.to_numeric(df["impresiones"],  errors="coerce").fillna(0)
     df["alcance"]      = pd.to_numeric(df["alcance"],      errors="coerce").fillna(0)
     df["ctr_link"]     = pd.to_numeric(df["ctr_link"],     errors="coerce").fillna(0)
