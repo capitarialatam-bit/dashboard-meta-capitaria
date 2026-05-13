@@ -172,67 +172,63 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         ["adcampaign_name", "adset_name", "ad_name",
          "creative_thumbnail_url", "video_asset_thumbnail_url",
          "cost_usd", "onsite_conversion.lead_grouped",
-         "CPM", "unique_link_CTR", "Frequency", "impressions", "reach"],
+         "impressions", "reach", "unique_action_link_click"],
         fecha_inicio, fecha_fin,
     )
     if df.empty:
         return df
 
     df = df.rename(columns={
-        "Campaign name":               "campana",
-        "Ad set name":                 "adset",
-        "Ad name":                     "anuncio",
-        "Ad creative thumbnail URL":   "thumbnail",
-        "Video asset thumbnail URL":   "thumbnail_video",
-        "Cost (USD)":                  "gasto",
-        "On-Facebook leads":           "leads",
-        "CPM (cost per 1000 impressions)": "cpm",
-        "Unique CTR (link click-through rate)": "ctr",
-        "Frequency":                   "frecuencia",
-        "Impressions":                 "impresiones",
-        "Reach":                       "alcance",
+        "Campaign name":             "campana",
+        "Ad set name":               "adset",
+        "Ad name":                   "anuncio",
+        "Ad creative thumbnail URL": "thumbnail",
+        "Video asset thumbnail URL": "thumbnail_video",
+        "Cost (USD)":                "gasto",
+        "On-Facebook leads":         "leads",
+        "Impressions":               "impresiones",
+        "Reach":                     "alcance",
+        "Unique link clicks":        "clicks_unicos",
     })
 
-    for col in ("thumbnail", "thumbnail_video"):
+    for col in ("thumbnail", "thumbnail_video", "clicks_unicos"):
         if col not in df.columns:
-            df[col] = ""
+            df[col] = "" if col in ("thumbnail", "thumbnail_video") else 0
 
-    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
-    df["leads"]      = pd.to_numeric(df["leads"],      errors="coerce").fillna(0).astype(int)
-    df["cpm"]        = pd.to_numeric(df["cpm"],        errors="coerce").fillna(0)
-    df["ctr"]        = pd.to_numeric(df["ctr"],        errors="coerce").fillna(0)
-    df["frecuencia"] = pd.to_numeric(df["frecuencia"], errors="coerce").fillna(0)
-    df["impresiones"]= pd.to_numeric(df["impresiones"],errors="coerce").fillna(0)
-    df["alcance"]    = pd.to_numeric(df["alcance"],    errors="coerce").fillna(0)
-    df["pais"]       = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
-    df["imagen"]     = df.apply(
+    df["gasto"]         = pd.to_numeric(df["gasto"],         errors="coerce").fillna(0)
+    df["leads"]         = pd.to_numeric(df["leads"],         errors="coerce").fillna(0).astype(int)
+    df["impresiones"]   = pd.to_numeric(df["impresiones"],   errors="coerce").fillna(0)
+    df["alcance"]       = pd.to_numeric(df["alcance"],       errors="coerce").fillna(0)
+    df["clicks_unicos"] = pd.to_numeric(df["clicks_unicos"], errors="coerce").fillna(0)
+    df["pais"]          = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["imagen"]        = df.apply(
         lambda r: r["thumbnail"] if str(r["thumbnail"]).startswith("http")
                   else r["thumbnail_video"], axis=1
     )
-    # CTR: si viene como decimal (0.015) lo convertimos a porcentaje (1.5)
-    if df["ctr"].max() <= 1:
-        df["ctr"] = df["ctr"] * 100
 
-    resultado = (
-        df.groupby(["pais", "campana", "anuncio", "imagen"])
+    # Agrupar por anuncio; tomar la primera imagen no vacía
+    agg = (
+        df.groupby(["pais", "campana", "anuncio"])
         .agg(
-            gasto      =("gasto",       "sum"),
-            leads      =("leads",       "sum"),
-            impresiones=("impresiones", "sum"),
-            alcance    =("alcance",     "sum"),
+            gasto        =("gasto",         "sum"),
+            leads        =("leads",         "sum"),
+            impresiones  =("impresiones",   "sum"),
+            alcance      =("alcance",       "sum"),
+            clicks_unicos=("clicks_unicos", "sum"),
+            imagen       =("imagen",        "first"),
         )
         .reset_index()
     )
-    resultado["costo_lead"] = resultado.apply(
+    agg["costo_lead"] = agg.apply(
         lambda r: r["gasto"] / r["leads"] if r["leads"] > 0 else 0, axis=1
     )
-    resultado["cpm"] = resultado.apply(
+    agg["cpm"] = agg.apply(
         lambda r: (r["gasto"] / r["impresiones"]) * 1000 if r["impresiones"] > 0 else 0, axis=1
     )
-    resultado["ctr"] = resultado.apply(
-        lambda r: (r["leads"] / r["impresiones"]) * 100 if r["impresiones"] > 0 else 0, axis=1
+    agg["ctr"] = agg.apply(
+        lambda r: (r["clicks_unicos"] / r["impresiones"]) * 100 if r["impresiones"] > 0 else 0, axis=1
     )
-    resultado["frecuencia"] = resultado.apply(
+    agg["frecuencia"] = agg.apply(
         lambda r: r["impresiones"] / r["alcance"] if r["alcance"] > 0 else 0, axis=1
     )
-    return resultado[["pais", "campana", "anuncio", "imagen", "leads", "costo_lead", "cpm", "ctr", "frecuencia"]]
+    return agg[["pais", "campana", "anuncio", "imagen", "leads", "costo_lead", "cpm", "ctr", "frecuencia"]]
