@@ -53,8 +53,8 @@ def _badge_cpm(v: float) -> str:
 def _thumbnail(url: str) -> str:
     if str(url).startswith("http"):
         return (
-            f"<img src='{url}' class='thumb' style='width:52px;height:52px;object-fit:cover;"
-            f"border-radius:6px;border:1px solid #2e2e2e;cursor:zoom-in;' />"
+            f"<img src='{url}' style='width:52px;height:52px;object-fit:cover;"
+            f"border-radius:6px;border:1px solid #2e2e2e;' />"
         )
     return "<div style='width:52px;height:52px;background:#242424;border-radius:6px;border:1px solid #2e2e2e;'></div>"
 
@@ -97,8 +97,6 @@ def render_rendimiento(df: pd.DataFrame, pais: str):
         ".t th.c{text-align:center;}"
         ".t td{color:white;padding:8px 12px;border-top:1px solid #252525;vertical-align:middle;}"
         ".t tbody tr:hover{background:#242424;}"
-        ".thumb{transition:transform 0.25s ease,box-shadow 0.25s ease;position:relative;z-index:1;}"
-        ".thumb:hover{transform:scale(3.5);z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.7);border-radius:4px;}"
         "</style>"
         "<table class='t'><thead><tr>"
         "<th></th>"

@@ -172,7 +172,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         ["adcampaign_name", "adset_name", "ad_name",
          "creative_thumbnail_url", "video_asset_thumbnail_url",
          "cost_usd", "onsite_conversion.lead_grouped",
-         "impressions", "reach", "unique_link_CTR"],
+         "impressions", "reach", "unique_link_CTR", "unique_outbound_CTR"],
         fecha_inicio, fecha_fin,
     )
     if df.empty:
@@ -188,22 +188,26 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         "On-Facebook leads":         "leads",
         "Impressions":               "impresiones",
         "Reach":                     "alcance",
-        "Unique CTR (link click-through rate)": "ctr_raw",
+        "Unique CTR (link click-through rate)":     "ctr_link",
+        "Unique outbound CTR":                       "ctr_outbound",
     })
 
-    for col in ("thumbnail", "thumbnail_video", "ctr_raw"):
+    for col in ("thumbnail", "thumbnail_video", "ctr_link", "ctr_outbound"):
         if col not in df.columns:
             df[col] = "" if col in ("thumbnail", "thumbnail_video") else 0
 
-    df["gasto"]       = pd.to_numeric(df["gasto"],       errors="coerce").fillna(0)
-    df["leads"]       = pd.to_numeric(df["leads"],       errors="coerce").fillna(0).astype(int)
-    df["impresiones"] = pd.to_numeric(df["impresiones"], errors="coerce").fillna(0)
-    df["alcance"]     = pd.to_numeric(df["alcance"],     errors="coerce").fillna(0)
-    df["ctr_raw"]     = pd.to_numeric(df["ctr_raw"],     errors="coerce").fillna(0)
-    # CTR viene como decimal (0.015) → convertir a porcentaje
+    df["gasto"]        = pd.to_numeric(df["gasto"],        errors="coerce").fillna(0)
+    df["leads"]        = pd.to_numeric(df["leads"],        errors="coerce").fillna(0).astype(int)
+    df["impresiones"]  = pd.to_numeric(df["impresiones"],  errors="coerce").fillna(0)
+    df["alcance"]      = pd.to_numeric(df["alcance"],      errors="coerce").fillna(0)
+    df["ctr_link"]     = pd.to_numeric(df["ctr_link"],     errors="coerce").fillna(0)
+    df["ctr_outbound"] = pd.to_numeric(df["ctr_outbound"], errors="coerce").fillna(0)
+    # Usar el mayor entre link CTR y outbound CTR
+    df["ctr_raw"] = df[["ctr_link", "ctr_outbound"]].max(axis=1)
+    # Convertir decimal a porcentaje si viene como 0.015
     if df["ctr_raw"].max() <= 1:
         df["ctr_raw"] = df["ctr_raw"] * 100
-    # Guardar ctr * impresiones para promedio ponderado al agrupar
+    # Promedio ponderado por impresiones para el agrupado
     df["ctr_pond"] = df["ctr_raw"] * df["impresiones"]
     df["pais"]          = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
     df["imagen"]        = df.apply(
