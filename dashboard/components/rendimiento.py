@@ -62,7 +62,6 @@ def _agg_metrics(rows):
 
 def render_rendimiento(df: pd.DataFrame, pais: str):
     df_pais = df[df["pais"] == pais].copy() if not df.empty else df.copy()
-    df_pais = df_pais[~df_pais["campana"].apply(_es_ep)]
 
     if df_pais.empty:
         st.info("Sin datos para este país en el rango seleccionado.")
@@ -131,13 +130,19 @@ def render_rendimiento(df: pd.DataFrame, pais: str):
                 f"</details>"
             )
 
+        ep_badge = (
+            " <span style='background:#3a3a3a;color:#888;font-size:0.65rem;"
+            "padding:2px 6px;border-radius:4px;font-weight:600;vertical-align:middle;'>EP</span>"
+            if _es_ep(campana) else ""
+        )
+        camp_bg = "#2a2420" if _es_ep(campana) else "#242424"
         bloques += (
             f"<details style='border-top:1px solid #333;'>"
             f"<summary style='display:grid;grid-template-columns:1fr 80px 110px 90px 80px 90px;"
-            f"gap:0;padding:10px 14px;background:#242424;cursor:pointer;"
+            f"gap:0;padding:10px 14px;background:{camp_bg};cursor:pointer;"
             f"list-style:none;align-items:center;'>"
-            f"<span style='color:white;font-size:0.85rem;font-weight:500;'>▸ {campana}</span>"
-            f"<span style='text-align:center;color:white;font-weight:700;font-size:0.85rem;'>{int(cl)}</span>"
+            f"<span style='color:{'#999' if _es_ep(campana) else 'white'};font-size:0.85rem;font-weight:500;'>▸ {campana}{ep_badge}</span>"
+            f"<span style='text-align:center;color:{'#777' if _es_ep(campana) else 'white'};font-weight:700;font-size:0.85rem;'>{int(cl)}</span>"
             f"<span style='text-align:center;'>{_costo(cc)}</span>"
             f"<span style='text-align:center;'>{_ctr(cctr)}</span>"
             f"<span style='text-align:center;'>{_freq(cf)}</span>"
