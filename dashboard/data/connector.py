@@ -61,14 +61,14 @@ def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 
 def _mock_rendimiento() -> pd.DataFrame:
     return pd.DataFrame([
-        {"pais": "Chile", "campana": "C004L-MC001", "anuncio": "Anuncio imagen 1", "imagen": "",
-         "leads": 40, "costo_lead": 6.5,  "cpm": 8.2,  "ctr": 2.1, "frecuencia": 1.2},
-        {"pais": "Chile", "campana": "C004L-MC001", "anuncio": "Anuncio imagen 2", "imagen": "",
-         "leads": 34, "costo_lead": 7.1,  "cpm": 12.4, "ctr": 1.3, "frecuencia": 1.8},
-        {"pais": "Chile", "campana": "C007L-EB001", "anuncio": "Anuncio video 1",  "imagen": "",
-         "leads": 20, "costo_lead": 18.2, "cpm": 16.5, "ctr": 0.8, "frecuencia": 2.8},
-        {"pais": "Mexico","campana": "C029L-MC005", "anuncio": "Anuncio imagen 1", "imagen": "",
-         "leads": 32, "costo_lead": 2.26, "cpm": 7.1,  "ctr": 3.2, "frecuencia": 1.1},
+        {"pais": "Chile", "campana": "C004L-MC001", "adset": "Adset-Similares", "anuncio": "Anuncio imagen 1", "imagen": "",
+         "leads": 40, "costo_lead": 6.5,  "cpm": 8.2,  "ctr": 2.1, "frecuencia": 1.2, "gasto": 260, "impresiones": 31700, "alcance": 26400, "ctr_pond": 66570},
+        {"pais": "Chile", "campana": "C004L-MC001", "adset": "Adset-Similares", "anuncio": "Anuncio imagen 2", "imagen": "",
+         "leads": 34, "costo_lead": 7.1,  "cpm": 12.4, "ctr": 1.3, "frecuencia": 1.8, "gasto": 241, "impresiones": 19435, "alcance": 10800, "ctr_pond": 25265},
+        {"pais": "Chile", "campana": "C007L-EB001", "adset": "Adset-Intereses",  "anuncio": "Anuncio video 1",  "imagen": "",
+         "leads": 20, "costo_lead": 18.2, "cpm": 16.5, "ctr": 0.8, "frecuencia": 2.8, "gasto": 364, "impresiones": 22060, "alcance": 7878, "ctr_pond": 17648},
+        {"pais": "Mexico","campana": "C029L-MC005", "adset": "Adset-MX-Open",    "anuncio": "Anuncio imagen 1", "imagen": "",
+         "leads": 32, "costo_lead": 2.26, "cpm": 7.1,  "ctr": 3.2, "frecuencia": 1.1, "gasto": 72, "impresiones": 10140, "alcance": 9218, "ctr_pond": 32448},
     ])
 
 

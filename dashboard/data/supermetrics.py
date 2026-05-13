@@ -202,11 +202,8 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     df["alcance"]      = pd.to_numeric(df["alcance"],      errors="coerce").fillna(0)
     df["ctr_link"]     = pd.to_numeric(df["ctr_link"],     errors="coerce").fillna(0)
     df["ctr_outbound"] = pd.to_numeric(df["ctr_outbound"], errors="coerce").fillna(0)
-    # Usar el mayor entre link CTR y outbound CTR
-    df["ctr_raw"] = df[["ctr_link", "ctr_outbound"]].max(axis=1)
-    # Convertir decimal a porcentaje si viene como 0.015
-    if df["ctr_raw"].max() <= 1:
-        df["ctr_raw"] = df["ctr_raw"] * 100
+    # Usar el mayor entre link CTR y outbound CTR; siempre viene como decimal → * 100
+    df["ctr_raw"] = df[["ctr_link", "ctr_outbound"]].max(axis=1) * 100
     # Promedio ponderado por impresiones para el agrupado
     df["ctr_pond"] = df["ctr_raw"] * df["impresiones"]
     df["pais"]          = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
@@ -217,7 +214,7 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 
     # Agrupar por anuncio; tomar la primera imagen no vacía
     agg = (
-        df.groupby(["pais", "campana", "anuncio"])
+        df.groupby(["pais", "campana", "adset", "anuncio"])
         .agg(
             gasto      =("gasto",       "sum"),
             leads      =("leads",       "sum"),
@@ -240,4 +237,4 @@ def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     agg["frecuencia"] = agg.apply(
         lambda r: r["impresiones"] / r["alcance"] if r["alcance"] > 0 else 0, axis=1
     )
-    return agg[["pais", "campana", "anuncio", "imagen", "leads", "costo_lead", "cpm", "ctr", "frecuencia"]]
+    return agg[["pais", "campana", "adset", "anuncio", "imagen", "leads", "costo_lead", "cpm", "ctr", "frecuencia"]]

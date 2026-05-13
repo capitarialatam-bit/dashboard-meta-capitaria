@@ -16,7 +16,8 @@ payload = {
     "date_range_type": "custom",
     "start_date": "2025-05-01",
     "end_date": "2025-05-13",
-    "fields": ["adcampaign_name", "ad_name", "impressions", "unique_link_CTR"],
+    "fields": ["adcampaign_name", "ad_name", "creative_thumbnail_url",
+               "impressions", "unique_link_CTR", "unique_outbound_CTR"],
     "max_rows": 5,
 }
 
