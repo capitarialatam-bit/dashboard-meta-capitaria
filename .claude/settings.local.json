@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "PowerShell(Stop-Process -Name EXCEL -Force -ErrorAction SilentlyContinue)",
+      "Bash(pip install *)",
+      "PowerShell($streamlit = \"C:\\\\Users\\\\AndrésArias\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\Scripts\\\\streamlit.exe\"; if \\(Test-Path $streamlit\\) { \"streamlit encontrado en: $streamlit\" } else { \"no encontrado\" })",
+      "PowerShell(Start-Process -FilePath \"C:\\\\Users\\\\Andr�sArias\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\Scripts\\\\streamlit.exe\" -ArgumentList \"run c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\app.py --server.headless true\" -WindowStyle Normal)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\.streamlit\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\credentials\")",
+      "WebFetch(domain:mcp.supermetrics.com)",
+      "Bash(pip freeze *)"
+    ]
+  }
+}
