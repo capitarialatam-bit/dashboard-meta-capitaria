@@ -169,7 +169,7 @@ def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 def query_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """Desglose por campaña con país detectado por nomenclatura."""
     df = _run_query(
-        ["adcampaign_name", "adset_name", "cost_usd",
+        ["adcampaign_id", "adcampaign_name", "adset_name", "cost_usd",
          "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
         fecha_inicio, fecha_fin,
     )
@@ -177,27 +177,29 @@ def query_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         return df
 
     df = df.rename(columns={
-        "Campaign name": "campana",
-        "Ad set name": "adset",
-        "Cost (USD)": "gasto",
+        "Campaign ID":      "campaign_id",
+        "Campaign name":    "campana",
+        "Ad set name":      "adset",
+        "Cost (USD)":       "gasto",
         "On-Facebook leads": "leads_form",
-        "Website leads": "leads_web",
+        "Website leads":    "leads_web",
     })
-    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
-    df["leads_form"] = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
-    df["leads_web"]  = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
-    df["leads"]      = (df["leads_form"] + df["leads_web"]).astype(int)
-    df["pais"]       = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["gasto"]       = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"]  = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]   = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
+    df["leads"]       = (df["leads_form"] + df["leads_web"]).astype(int)
+    df["pais"]        = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["campaign_id"] = df["campaign_id"].astype(str)
 
     resultado = (
-        df.groupby(["pais", "campana"])
+        df.groupby(["pais", "campana", "campaign_id"])
         .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
         .reset_index()
     )
     resultado["costo_lead"] = resultado.apply(
         lambda r: r["gasto"] / r["leads"] if r["leads"] > 0 else 0, axis=1
     )
-    return resultado[["pais", "campana", "gasto", "costo_lead", "leads"]]
+    return resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
 
 
 def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:

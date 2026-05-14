@@ -13,10 +13,14 @@ def render_campanas(df: pd.DataFrame, pais: str):
 
     # Separar EP del conteo general
     df_normales = df_pais[~df_pais["campana"].apply(_es_evento_presencial)]
-    df_ep       = df_pais[df_pais["campana"].apply(_es_evento_presencial)]
 
     gasto_total = df_normales["gasto"].sum()  # EP excluidos
     leads_total = int(df_normales["leads"].sum())  # EP excluidos
+
+    # Detectar nombres duplicados para mostrar ID en esos casos
+    nombres_duplicados = set(
+        df_pais[df_pais.duplicated(subset=["campana"], keep=False)]["campana"].unique()
+    ) if "campaign_id" in df_pais.columns else set()
 
     # ── KPI cards ─────────────────────────────────────────────────────────────
     col1, col2, col3 = st.columns([1, 1, 3])
@@ -57,17 +61,29 @@ def render_campanas(df: pd.DataFrame, pais: str):
         es_ep = _es_evento_presencial(row["campana"])
         costo = f"${row['costo_lead']:,.2f}" if row["costo_lead"] > 0 else "$0"
 
+        # Badge EP
+        ep_badge = (
+            " <span style='background:#555;color:#ccc;font-size:0.65rem;"
+            "padding:2px 6px;border-radius:4px;font-weight:600;'>EP</span>"
+            if es_ep else ""
+        )
+
+        # Badge ID cuando el nombre está duplicado
+        cid = str(row.get("campaign_id", ""))
+        id_badge = ""
+        if row["campana"] in nombres_duplicados and cid:
+            id_badge = (
+                f" <span style='background:#1a2a3a;color:#6aaad4;font-size:0.65rem;"
+                f"padding:2px 6px;border-radius:4px;font-weight:600;'>ID …{cid[-6:]}</span>"
+            )
+
         if es_ep:
             fila_style = "background:#2e2e2e;"
-            nombre_cell = (
-                f"{row['campana']} "
-                f"<span style='background:#555;color:#ccc;font-size:0.65rem;"
-                f"padding:2px 6px;border-radius:4px;font-weight:600;'>EP</span>"
-            )
+            nombre_cell = f"{row['campana']}{ep_badge}{id_badge}"
             color_texto = "color:#aaa;"
         else:
             fila_style = ""
-            nombre_cell = row["campana"]
+            nombre_cell = f"{row['campana']}{ep_badge}{id_badge}"
             color_texto = "color:white;"
 
         filas += (

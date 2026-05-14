@@ -20,9 +20,9 @@ def _mock_resumen(fecha_fin: date) -> pd.DataFrame:
 
 def _mock_campanas() -> pd.DataFrame:
     return pd.DataFrame([
-        {"pais": "Chile",  "campana": "C004L-MC001", "gasto": 838.73, "costo_lead": 11.65, "leads": 74},
-        {"pais": "Chile",  "campana": "C007L-EB001", "gasto": 614.59, "costo_lead": 17.07, "leads": 36},
-        {"pais": "Mexico", "campana": "C029L-MC005", "gasto": 72.36,  "costo_lead": 2.26,  "leads": 32},
+        {"pais": "Chile",  "campana": "C004L-MC001", "campaign_id": "120210000001", "gasto": 838.73, "costo_lead": 11.65, "leads": 74},
+        {"pais": "Chile",  "campana": "C007L-EB001", "campaign_id": "120210000002", "gasto": 614.59, "costo_lead": 17.07, "leads": 36},
+        {"pais": "Mexico", "campana": "C029L-MC005", "campaign_id": "120210000003", "gasto": 72.36,  "costo_lead": 2.26,  "leads": 32},
     ])
 
 
