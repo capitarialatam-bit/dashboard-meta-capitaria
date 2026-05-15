@@ -3,7 +3,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
-SHEET_ID   = st.secrets.get("GSHEET_ID", "")
+SHEET_ID   = "1cOz6ZfsKHl5JRvHpNNlsgENU0K14wtHwZElh75mC32I"
 SHEET_NAME = "leads_nuevos"
 SCOPES     = [
     "https://www.googleapis.com/auth/spreadsheets",
