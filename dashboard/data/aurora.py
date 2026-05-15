@@ -59,11 +59,25 @@ def cargar_excel(file) -> tuple[int, str]:
     df = df[["created_at", "country", "utm_medium",
              "utm_campaign", "diccionario_bb", "leads_nuevos"]]
 
+    # Convertir todo a tipos nativos Python serializables en JSON
+    def _safe(v):
+        if v is None:
+            return ""
+        import math
+        try:
+            if isinstance(v, float) and math.isnan(v):
+                return ""
+        except Exception:
+            pass
+        if hasattr(v, "item"):  # numpy scalar
+            return v.item()
+        return str(v) if not isinstance(v, (int, float, str, bool)) else v
+
     ws = _get_or_create_sheet()
     ws.clear()
     header = ["created_at", "country", "utm_medium",
               "utm_campaign", "diccionario_bb", "leads_nuevos"]
-    rows = [header] + df.values.tolist()
+    rows = [header] + [[_safe(c) for c in row] for row in df.values.tolist()]
     ws.update(rows, value_input_option="RAW")
 
     return len(df), f"✅ {len(df)} registros cargados correctamente."
