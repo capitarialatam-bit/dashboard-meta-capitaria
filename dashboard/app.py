@@ -4,7 +4,7 @@ import base64
 sys.path.insert(0, os.path.dirname(__file__))
 
 import streamlit as st
-from datetime import date
+from datetime import date, timedelta
 
 from data.connector import get_resumen_por_pais, get_campanas
 from data.aurora import cargar_excel, leer_leads_nuevos
@@ -46,9 +46,19 @@ with col_logo:
         unsafe_allow_html=True,
     )
 with col_fecha:
-    rango = st.date_input("Fechas", value=(hoy, hoy), max_value=hoy, label_visibility="collapsed")
-
-fecha_inicio, fecha_fin = (rango[0], rango[1]) if isinstance(rango, (list, tuple)) and len(rango) == 2 else (hoy, hoy)
+    PRESETS = {
+        "Hoy":           (hoy, hoy),
+        "Ayer":          (hoy - timedelta(days=1), hoy - timedelta(days=1)),
+        "Últimos 7 días": (hoy - timedelta(days=6), hoy),
+        "Últimos 30 días":(hoy - timedelta(days=29), hoy),
+        "Personalizado": None,
+    }
+    preset = st.selectbox("Período", list(PRESETS.keys()), label_visibility="collapsed")
+    if PRESETS[preset]:
+        fecha_inicio, fecha_fin = PRESETS[preset]
+    else:
+        rango = st.date_input("Rango", value=(hoy, hoy), max_value=hoy, label_visibility="collapsed")
+        fecha_inicio, fecha_fin = (rango[0], rango[1]) if isinstance(rango, (list, tuple)) and len(rango) == 2 else (hoy, hoy)
 
 st.divider()
 
