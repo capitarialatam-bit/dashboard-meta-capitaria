@@ -26,7 +26,7 @@ st.markdown(
     [data-testid="stHeader"] { background-color: #0e1117; }
     [data-testid="stSidebar"] { background-color: #0e1117; }
     h1, h2, h3 { color: white !important; }
-    .block-container { padding-top: 1.5rem; }
+    .block-container { padding-top: 2.5rem; }
     [data-testid="stTabs"] button { color: #aaa !important; }
     [data-testid="stTabs"] button[aria-selected="true"] { color: white !important; }
     </style>
@@ -42,7 +42,7 @@ hoy = date.today()
 col_logo, col_fecha = st.columns([3, 1])
 with col_logo:
     st.markdown(
-        f"<img src='data:image/png;base64,{_logo_b64}' style='height:56px;object-fit:contain;'>",
+        f"<img src='data:image/png;base64,{_logo_b64}' style='height:52px;object-fit:contain;margin-top:8px;'>",
         unsafe_allow_html=True,
     )
 with col_fecha:
