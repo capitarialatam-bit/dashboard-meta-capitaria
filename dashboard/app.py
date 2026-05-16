@@ -1,5 +1,6 @@
 import sys
 import os
+import base64
 sys.path.insert(0, os.path.dirname(__file__))
 
 import streamlit as st
@@ -34,10 +35,16 @@ st.markdown(
 )
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown("## Control diario — Meta Ads")
+_logo_path = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+_logo_b64 = base64.b64encode(open(_logo_path, "rb").read()).decode()
 
 hoy = date.today()
-_, col_fecha = st.columns([3, 1])
+col_logo, col_fecha = st.columns([3, 1])
+with col_logo:
+    st.markdown(
+        f"<img src='data:image/png;base64,{_logo_b64}' style='height:56px;object-fit:contain;'>",
+        unsafe_allow_html=True,
+    )
 with col_fecha:
     rango = st.date_input("Fechas", value=(hoy, hoy), max_value=hoy, label_visibility="collapsed")
 
