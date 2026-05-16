@@ -14,7 +14,7 @@ from components.nuevos import render_nuevos
 from config import PAISES
 
 st.set_page_config(
-    page_title="Capitaria — Meta Ads",
+    page_title="Capitaria — Paid Media",
     page_icon="🟢",
     layout="wide",
 )
