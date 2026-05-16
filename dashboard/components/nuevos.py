@@ -1,6 +1,26 @@
+import re
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+
+DICCIONARIO = {
+    "EP": "Evento presencial", "WE": "Webinar",    "AC": "Activación",
+    "IN": "Informes",          "EB": "Ebook",       "BP": "Blog Post",
+    "NT": "Nutrición",         "MC": "Masterclass", "WK": "Weekly",
+    "DJ": "Dojo",              "BD": "Branding",    "PR": "Prensa",
+    "CA": "Cápsulas orgánicas","LI": "LinkedIn Líderes", "EX": "Experimentos",
+    "TF": "TOFU",              "MF": "MOFU",        "BF": "BOFU",
+    "FL": "Flagship",
+}
+
+
+def _categoria(camp: str, dic_bb: str) -> str:
+    if dic_bb and str(dic_bb) not in ("nan", "None", ""):
+        return str(dic_bb)
+    m = re.search(r'-([A-Z]{2})\d+', str(camp).upper())
+    if m and m.group(1) in DICCIONARIO:
+        return DICCIONARIO[m.group(1)]
+    return "—"
 
 
 def _badge(v, bg, color):
@@ -121,9 +141,22 @@ def render_nuevos(df_meta: pd.DataFrame, df_nuevos: pd.DataFrame, pais: str):
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("#### Top campañas por Leads Nuevos")
 
+    df_display = df_nuevos[df_nuevos["utm_medium"] == "display"].copy()
+    df_display["categoria"] = df_display.apply(
+        lambda r: _categoria(r["utm_campaign"], r.get("diccionario_bb", "")), axis=1
+    )
+
+    # Filtro de país
+    paises_disponibles = sorted(df_display["country"].dropna().unique().tolist())
+    opciones = ["Todos"] + paises_disponibles
+    pais_ranking = st.selectbox("País", opciones, key="ranking_pais", label_visibility="collapsed")
+
+    if pais_ranking != "Todos":
+        df_display = df_display[df_display["country"] == pais_ranking]
+
     ranking = (
-        df_nuevos[df_nuevos["utm_medium"] == "display"]
-        .groupby(["utm_campaign", "country", "diccionario_bb"])["leads_nuevos"]
+        df_display
+        .groupby(["utm_campaign", "country", "categoria"])["leads_nuevos"]
         .sum()
         .reset_index()
         .sort_values("leads_nuevos", ascending=False)
@@ -137,13 +170,13 @@ def render_nuevos(df_meta: pd.DataFrame, df_nuevos: pd.DataFrame, pais: str):
     filas_r = ""
     for i, row in enumerate(ranking.itertuples(), 1):
         bar_w = int((row.leads_nuevos / ranking["leads_nuevos"].iloc[0]) * 100)
-        dic = str(row.diccionario_bb) if str(row.diccionario_bb) not in ("nan", "") else "—"
+        dic = row.categoria
         filas_r += (
             f"<tr>"
             f"<td style='color:#666;text-align:center;'>{i}</td>"
             f"<td style='color:white;font-weight:500;'>{row.utm_campaign}</td>"
             f"<td style='color:#aaa;'>{dic}</td>"
-            f"<td style='color:#aaa;'>{row.country}</td>"
+            f"<td style='color:#aaa;font-size:0.8rem;'>{row.country}</td>"
             f"<td style='min-width:140px;'>"
             f"<div style='display:flex;align-items:center;gap:8px;'>"
             f"<div style='background:#6dba8a;height:6px;border-radius:3px;width:{bar_w}%;min-width:4px;'></div>"
