@@ -113,3 +113,64 @@ def render_nuevos(df_meta: pd.DataFrame, df_nuevos: pd.DataFrame, pais: str):
         "</div>",
         unsafe_allow_html=True,
     )
+
+    # ── Ranking de campañas por leads nuevos ────────────────────────────────
+    if df_nuevos.empty:
+        return
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### Top campañas por Leads Nuevos")
+
+    ranking = (
+        df_nuevos[df_nuevos["utm_medium"] == "display"]
+        .groupby(["utm_campaign", "country", "diccionario_bb"])["leads_nuevos"]
+        .sum()
+        .reset_index()
+        .sort_values("leads_nuevos", ascending=False)
+        .head(15)
+    )
+
+    if ranking.empty:
+        st.info("Sin datos de campañas para el período seleccionado.")
+        return
+
+    filas_r = ""
+    for i, row in enumerate(ranking.itertuples(), 1):
+        bar_w = int((row.leads_nuevos / ranking["leads_nuevos"].iloc[0]) * 100)
+        dic = str(row.diccionario_bb) if str(row.diccionario_bb) not in ("nan", "") else "—"
+        filas_r += (
+            f"<tr>"
+            f"<td style='color:#666;text-align:center;'>{i}</td>"
+            f"<td style='color:white;font-weight:500;'>{row.utm_campaign}</td>"
+            f"<td style='color:#aaa;'>{dic}</td>"
+            f"<td style='color:#aaa;'>{row.country}</td>"
+            f"<td style='min-width:140px;'>"
+            f"<div style='display:flex;align-items:center;gap:8px;'>"
+            f"<div style='background:#6dba8a;height:6px;border-radius:3px;width:{bar_w}%;min-width:4px;'></div>"
+            f"<span style='color:#6dba8a;font-weight:600;font-size:0.85rem;'>{int(row.leads_nuevos)}</span>"
+            f"</div></td>"
+            f"</tr>"
+        )
+
+    html_r = (
+        "<style>"
+        "body{margin:0;background:#0e1117;font-family:sans-serif;}"
+        ".r{width:100%;border-collapse:collapse;background:#161616;border-radius:10px;overflow:hidden;font-size:0.85rem;}"
+        ".r thead tr{background:#2a2a2a;}"
+        ".r th{color:#aaa;font-weight:500;padding:10px 14px;text-align:left;}"
+        ".r td{color:#ccc;padding:9px 14px;border-top:1px solid #222;}"
+        ".r tbody tr:hover{filter:brightness(1.2);}"
+        "</style>"
+        "<table class='r'><thead><tr>"
+        "<th style='width:40px;text-align:center;'>#</th>"
+        "<th>Campaña</th>"
+        "<th>Categoría</th>"
+        "<th>País</th>"
+        "<th>Leads Nuevos</th>"
+        "</tr></thead><tbody>"
+        f"{filas_r}"
+        "</tbody></table>"
+    )
+
+    height_r = 50 + len(ranking) * 42
+    components.html(html_r, height=min(height_r, 700), scrolling=True)
