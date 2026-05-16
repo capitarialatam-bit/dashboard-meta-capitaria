@@ -14,8 +14,8 @@ from components.nuevos import render_nuevos
 from config import PAISES
 
 st.set_page_config(
-    page_title="Control Diario — Meta Ads",
-    page_icon="📊",
+    page_title="Capitaria — Meta Ads",
+    page_icon="🟢",
     layout="wide",
 )
 
@@ -35,8 +35,15 @@ st.markdown(
 )
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-_logo_path = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
-_logo_b64 = base64.b64encode(open(_logo_path, "rb").read()).decode()
+_logo_path    = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+_favicon_path = os.path.join(os.path.dirname(__file__), "assets", "favicon.png")
+_logo_b64    = base64.b64encode(open(_logo_path,    "rb").read()).decode()
+_favicon_b64 = base64.b64encode(open(_favicon_path, "rb").read()).decode()
+
+st.markdown(
+    f"<link rel='shortcut icon' href='data:image/png;base64,{_favicon_b64}'>",
+    unsafe_allow_html=True,
+)
 
 hoy = date.today()
 col_logo, col_fecha = st.columns([3, 1])
