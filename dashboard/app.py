@@ -60,7 +60,7 @@ with col_fecha:
         "Últimos 30 días":(hoy - timedelta(days=29), hoy),
         "Personalizado": None,
     }
-    preset = st.selectbox("Período", list(PRESETS.keys()), label_visibility="collapsed")
+    preset = st.selectbox("Período", list(PRESETS.keys()), index=1, label_visibility="collapsed")
     if PRESETS[preset]:
         fecha_inicio, fecha_fin = PRESETS[preset]
     else:

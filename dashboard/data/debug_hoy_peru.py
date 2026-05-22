@@ -11,10 +11,11 @@ load_dotenv()
 API_KEY      = os.getenv('SUPERMETRICS_API_KEY')
 MCP_BASE     = 'https://mcp.supermetrics.com/mcp'
 META_ACCOUNT = 'act_336792180552844'
-HOY          = date.today().strftime('%Y-%m-%d')
+from datetime import timedelta
+HOY          = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')  # ayer, más confiable
 
 print(f"API_KEY presente: {'SI' if API_KEY else 'NO ← el problema está aquí'}")
-print(f"Consultando fecha: {HOY}\n")
+print(f"Consultando fecha: {HOY} (ayer — datos del día actual no están disponibles en Supermetrics)\n")
 
 if not API_KEY:
     print("ERROR: SUPERMETRICS_API_KEY no encontrada en .env")
