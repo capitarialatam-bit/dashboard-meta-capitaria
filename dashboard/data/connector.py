@@ -28,14 +28,22 @@ def _mock_campanas() -> pd.DataFrame:
 
 def get_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     if not API_KEY:
+        import streamlit as st
+        st.warning("⚠️ SUPERMETRICS_API_KEY no configurada — mostrando datos de ejemplo.", icon="⚠️")
         return _mock_resumen(fecha_fin)
     try:
         from data.supermetrics import query_meta_ads
         df = query_meta_ads(fecha_inicio, fecha_fin)
-        return df if not df.empty else _mock_resumen(fecha_fin)
+        if df.empty:
+            import streamlit as st
+            st.info("ℹ️ Supermetrics no retornó datos para el período seleccionado. Puede que aún no haya actividad registrada hoy.")
+            return pd.DataFrame(columns=["pais", "fecha", "gasto", "leads"])
+        return df
     except Exception as e:
+        import streamlit as st
+        st.error(f"❌ Error al consultar Supermetrics: {e}")
         print(f"[connector] Error: {e}")
-        return _mock_resumen(fecha_fin)
+        return pd.DataFrame(columns=["pais", "fecha", "gasto", "leads"])
 
 
 def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
@@ -53,10 +61,10 @@ def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     try:
         from data.supermetrics import query_campanas
         df = query_campanas(fecha_inicio, fecha_fin)
-        return df if not df.empty else _mock_campanas()
+        return df if not df.empty else pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
     except Exception as e:
         print(f"[connector] Error campañas: {e}")
-        return _mock_campanas()
+        return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
 
 
 def _mock_rendimiento() -> pd.DataFrame:
