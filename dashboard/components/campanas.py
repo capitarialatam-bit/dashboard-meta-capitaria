@@ -9,18 +9,24 @@ def _es_evento_presencial(nombre: str) -> bool:
 
 
 def render_campanas(df: pd.DataFrame, pais: str):
-    df_pais = df[df["pais"] == pais].copy() if not df.empty else df.copy()
+    COLS_REQUERIDAS = {"pais", "campana", "gasto", "leads", "costo_lead"}
+    tiene_datos = not df.empty and COLS_REQUERIDAS.issubset(df.columns)
+
+    df_pais = df[df["pais"] == pais].copy() if tiene_datos else pd.DataFrame(columns=list(COLS_REQUERIDAS))
 
     # Separar EP del conteo general
-    df_normales = df_pais[~df_pais["campana"].apply(_es_evento_presencial)]
+    if not df_pais.empty:
+        df_normales = df_pais[~df_pais["campana"].apply(_es_evento_presencial)]
+    else:
+        df_normales = df_pais
 
-    gasto_total = df_normales["gasto"].sum()  # EP excluidos
-    leads_total = int(df_normales["leads"].sum())  # EP excluidos
+    gasto_total = df_normales["gasto"].sum() if not df_normales.empty else 0.0
+    leads_total = int(df_normales["leads"].sum()) if not df_normales.empty else 0
 
     # Detectar nombres duplicados para mostrar ID en esos casos
     nombres_duplicados = set(
         df_pais[df_pais.duplicated(subset=["campana"], keep=False)]["campana"].unique()
-    ) if "campaign_id" in df_pais.columns else set()
+    ) if "campaign_id" in df_pais.columns and not df_pais.empty else set()
 
     # ── KPI cards ─────────────────────────────────────────────────────────────
     col1, col2, col3 = st.columns([1, 1, 3])
