@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import streamlit as st
 from datetime import date
 from dotenv import load_dotenv
 
@@ -27,8 +28,6 @@ def _empty_campanas() -> pd.DataFrame:
 
 
 def get_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
-    import streamlit as st
-
     api_key = _get_api_key()
     if not api_key:
         st.warning("⚠️ SUPERMETRICS_API_KEY no configurada.", icon="⚠️")
@@ -58,8 +57,6 @@ def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
-    import streamlit as st
-
     api_key = _get_api_key()
     if not api_key:
         return _empty_campanas()
