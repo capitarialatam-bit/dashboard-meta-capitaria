@@ -54,11 +54,11 @@ with col_logo:
     )
 with col_fecha:
     PRESETS = {
-        "Hoy":           (hoy, hoy),
-        "Ayer":          (hoy - timedelta(days=1), hoy - timedelta(days=1)),
+        "Hoy":            (hoy, hoy),
+        "Ayer":           (hoy - timedelta(days=1), hoy - timedelta(days=1)),
         "Últimos 7 días": (hoy - timedelta(days=6), hoy),
         "Últimos 30 días":(hoy - timedelta(days=29), hoy),
-        "Personalizado": None,
+        "Personalizado":  None,
     }
     preset = st.selectbox("Período", list(PRESETS.keys()), index=1, label_visibility="collapsed")
     if PRESETS[preset]:
@@ -69,10 +69,21 @@ with col_fecha:
 
 st.divider()
 
-# ── Cargar datos una sola vez (cacheados 5 min) ────────────────────────────────
+# ── Cargar datos una sola vez (caché por 5 min en app.py) ──────────────────────
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_resumen(fi, ff):
+    return get_resumen_por_pais(fi, ff)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_campanas(fi, ff):
+    return get_campanas(fi, ff)
+
 with st.spinner("Cargando datos de Meta Ads..."):
-    df_resumen  = get_resumen_por_pais(fecha_inicio, fecha_fin)
-    df_campanas = get_campanas(fecha_inicio, fecha_fin)
+    df_resumen  = _cargar_resumen(fecha_inicio, fecha_fin)
+    df_campanas = _cargar_campanas(fecha_inicio, fecha_fin)
+
+if df_resumen.empty:
+    st.warning("Sin datos para el período seleccionado. Prueba con 'Últimos 7 días'.")
 
 # ── Pestañas ───────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["Control Diario", "Campañas por País", "Nuevos & Reingresos"])
@@ -109,5 +120,4 @@ with tab3:
     with st.spinner("Leyendo histórico..."):
         df_nuevos = leer_leads_nuevos(fecha_inicio, fecha_fin)
 
-    pais_tab3 = pais_sel if "pais_sel" in dir() else "Chile"
-    render_nuevos(df_resumen, df_nuevos, pais_tab3)
+    render_nuevos(df_resumen, df_nuevos, pais_sel if "pais_sel" in dir() else "Chile")

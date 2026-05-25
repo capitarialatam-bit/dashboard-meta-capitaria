@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import streamlit as st
 from datetime import date
 from dotenv import load_dotenv
 
@@ -8,7 +7,6 @@ load_dotenv()
 
 
 def _get_api_key() -> str:
-    # Local: desde .env. Streamlit Cloud: desde st.secrets
     key = os.getenv("SUPERMETRICS_API_KEY", "")
     if not key:
         try:
@@ -19,51 +17,33 @@ def _get_api_key() -> str:
     return key
 
 
-def _empty_resumen() -> pd.DataFrame:
-    return pd.DataFrame(columns=["pais", "fecha", "gasto", "leads"])
-
-
-def _empty_campanas() -> pd.DataFrame:
-    return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
-
-
-def get_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     api_key = _get_api_key()
     if not api_key:
-        st.warning("⚠️ SUPERMETRICS_API_KEY no configurada.", icon="⚠️")
-        return _empty_resumen()
+        return pd.DataFrame(columns=["pais", "gasto", "leads"])
     try:
         from data.supermetrics import query_meta_ads
         df = query_meta_ads(fecha_inicio, fecha_fin, api_key)
         if df.empty:
-            st.info("ℹ️ Sin datos para el período seleccionado.")
-        return df if not df.empty else _empty_resumen()
+            return pd.DataFrame(columns=["pais", "gasto", "leads"])
+        return (
+            df.groupby("pais")
+            .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
+            .reset_index()
+        )
     except Exception as e:
-        st.error(f"❌ Error Supermetrics: {e}")
-        return _empty_resumen()
+        print(f"[connector] Error resumen: {e}")
+        return pd.DataFrame(columns=["pais", "gasto", "leads"])
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
-    df = get_meta_ads(fecha_inicio, fecha_fin)
-    if df.empty:
-        return df
-    return (
-        df.groupby("pais")
-        .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
-        .reset_index()
-    )
-
-
-@st.cache_data(ttl=300, show_spinner=False)
 def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     api_key = _get_api_key()
     if not api_key:
-        return _empty_campanas()
+        return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
     try:
         from data.supermetrics import query_campanas
         df = query_campanas(fecha_inicio, fecha_fin, api_key)
-        return df if not df.empty else _empty_campanas()
+        return df if not df.empty else pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
     except Exception as e:
-        st.error(f"❌ Error campañas: {e}")
-        return _empty_campanas()
+        print(f"[connector] Error campañas: {e}")
+        return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
