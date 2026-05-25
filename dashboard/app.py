@@ -69,13 +69,15 @@ with col_fecha:
 
 st.divider()
 
+# ── Cargar datos una sola vez (cacheados 5 min) ────────────────────────────────
+with st.spinner("Cargando datos de Meta Ads..."):
+    df_resumen  = get_resumen_por_pais(fecha_inicio, fecha_fin)
+    df_campanas = get_campanas(fecha_inicio, fecha_fin)
+
 # ── Pestañas ───────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["Control Diario", "Campañas por País", "Nuevos & Reingresos"])
 
 with tab1:
-    with st.spinner("Cargando datos..."):
-        df_resumen = get_resumen_por_pais(fecha_inicio, fecha_fin)
-
     render_kpi_cards(df_resumen, fecha_fin)
     st.markdown("<br>", unsafe_allow_html=True)
     render_tabla_mensual(df_resumen, fecha_fin)
@@ -84,10 +86,6 @@ with tab2:
     col_pais, _ = st.columns([1, 3])
     with col_pais:
         pais_sel = st.selectbox("País", list(PAISES.keys()), label_visibility="collapsed")
-
-    with st.spinner("Cargando campañas..."):
-        df_campanas = get_campanas(fecha_inicio, fecha_fin)
-
     render_campanas(df_campanas, pais_sel)
 
 with tab3:
@@ -109,7 +107,7 @@ with tab3:
     st.markdown("<br>", unsafe_allow_html=True)
 
     with st.spinner("Leyendo histórico..."):
-        df_nuevos  = leer_leads_nuevos(fecha_inicio, fecha_fin)
-        df_resumen3 = get_resumen_por_pais(fecha_inicio, fecha_fin)
+        df_nuevos = leer_leads_nuevos(fecha_inicio, fecha_fin)
 
-    render_nuevos(df_resumen3, df_nuevos, pais_sel if "pais_sel" in dir() else "Chile")
+    pais_tab3 = pais_sel if "pais_sel" in dir() else "Chile"
+    render_nuevos(df_resumen, df_nuevos, pais_tab3)

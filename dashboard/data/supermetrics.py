@@ -92,25 +92,25 @@ def detectar_pais(campana: str, adset: str = "") -> str:
     return "Sin identificar"
 
 
-def _headers() -> dict:
+def _headers(api_key: str) -> dict:
     return {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
 
 
-def _post(tool: str, body: dict) -> dict:
+def _post(tool: str, body: dict, api_key: str) -> dict:
     url = f"{MCP_BASE}/{tool}"
-    resp = requests.post(url, json=body, headers=_headers(), timeout=60)
+    resp = requests.post(url, json=body, headers=_headers(api_key), timeout=60)
     resp.raise_for_status()
     return resp.json()
 
 
-def _wait_result(schedule_id: str, max_tries: int = 30) -> list:
+def _wait_result(schedule_id: str, api_key: str, max_tries: int = 30) -> list:
     for _ in range(max_tries):
         time.sleep(2)
-        result = _post("get_async_query_results", {"schedule_id": schedule_id})
+        result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
         data = result.get("data", {})
         if data.get("status") == "completed" or data.get("success"):
             rows = data.get("data", [])
@@ -119,7 +119,7 @@ def _wait_result(schedule_id: str, max_tries: int = 30) -> list:
     return []
 
 
-def _run_query(fields: list, fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+def _run_query(fields: list, fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataFrame:
     payload = {
         "ds_id": "FA",
         "ds_accounts": META_ACCOUNT,
@@ -129,22 +129,22 @@ def _run_query(fields: list, fecha_inicio: date, fecha_fin: date) -> pd.DataFram
         "fields": fields,
         "max_rows": 5000,
     }
-    result = _post("data_query", payload)
+    result = _post("data_query", payload, api_key)
     schedule_id = result.get("data", {}).get("schedule_id")
     if not schedule_id:
         return pd.DataFrame()
-    rows = _wait_result(schedule_id)
+    rows = _wait_result(schedule_id, api_key)
     if not rows or len(rows) < 2:
         return pd.DataFrame()
     return pd.DataFrame(rows[1:], columns=rows[0])
 
 
-def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+def query_meta_ads(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
     """Resumen por país usando nomenclatura de campañas."""
     df = _run_query(
         ["Date", "adcampaign_name", "adset_name", "cost_usd",
          "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
-        fecha_inicio, fecha_fin,
+        fecha_inicio, fecha_fin, api_key,
     )
     if df.empty:
         return df
@@ -166,12 +166,12 @@ def query_meta_ads(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     return df[["fecha", "pais", "gasto", "leads"]]
 
 
-def query_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+def query_campanas(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
     """Desglose por campaña con país detectado por nomenclatura."""
     df = _run_query(
         ["adcampaign_id", "adcampaign_name", "adset_name", "cost_usd",
          "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
-        fecha_inicio, fecha_fin,
+        fecha_inicio, fecha_fin, api_key,
     )
     if df.empty:
         return df
