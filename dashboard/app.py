@@ -69,18 +69,22 @@ with col_fecha:
 
 st.divider()
 
-# ── Cargar datos una sola vez (caché por 5 min en app.py) ──────────────────────
-@st.cache_data(ttl=300, show_spinner=False)
-def _cargar_resumen(fi, ff):
-    return get_resumen_por_pais(fi, ff)
+# ── Diagnóstico API key (temporal) ─────────────────────────────────────────────
+_key_env = os.getenv("SUPERMETRICS_API_KEY", "")
+_key_sec = ""
+try:
+    _key_sec = st.secrets.get("SUPERMETRICS_API_KEY", "")
+except Exception:
+    pass
+_api_key_ok = bool(_key_env or _key_sec)
+if not _api_key_ok:
+    st.error("❌ SUPERMETRICS_API_KEY no encontrada. Configúrala en Streamlit Cloud → Settings → Secrets.")
+    st.stop()
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _cargar_campanas(fi, ff):
-    return get_campanas(fi, ff)
-
+# ── Cargar datos una sola vez ──────────────────────────────────────────────────
 with st.spinner("Cargando datos de Meta Ads..."):
-    df_resumen  = _cargar_resumen(fecha_inicio, fecha_fin)
-    df_campanas = _cargar_campanas(fecha_inicio, fecha_fin)
+    df_resumen  = get_resumen_por_pais(fecha_inicio, fecha_fin)
+    df_campanas = get_campanas(fecha_inicio, fecha_fin)
 
 if df_resumen.empty:
     st.warning("Sin datos para el período seleccionado. Prueba con 'Últimos 7 días'.")
