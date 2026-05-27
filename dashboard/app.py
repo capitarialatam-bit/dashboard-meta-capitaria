@@ -1,7 +1,6 @@
 import sys
 import os
 import base64
-from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(__file__))
 
 import streamlit as st
@@ -82,19 +81,18 @@ if not _api_key_ok:
     st.error("❌ SUPERMETRICS_API_KEY no encontrada. Configúrala en Streamlit Cloud → Settings → Secrets.")
     st.stop()
 
-# ── Cargar datos en paralelo (cacheados 5 min) ────────────────────────────────
+# ── Cargar datos (cacheados 5 min) ────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
-def _cargar_todo(fi, ff):
-    """Lanza ambas queries a Supermetrics en paralelo para reducir espera."""
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        fut_resumen  = ex.submit(get_resumen_por_pais, fi, ff)
-        fut_campanas = ex.submit(get_campanas, fi, ff)
-        resumen  = fut_resumen.result()
-        campanas = fut_campanas.result()
-    return resumen, campanas
+def _cargar_resumen(fi, ff):
+    return get_resumen_por_pais(fi, ff)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_campanas(fi, ff):
+    return get_campanas(fi, ff)
 
 with st.spinner("Cargando datos de Meta Ads..."):
-    df_resumen, df_campanas = _cargar_todo(fecha_inicio, fecha_fin)
+    df_resumen  = _cargar_resumen(fecha_inicio, fecha_fin)
+    df_campanas = _cargar_campanas(fecha_inicio, fecha_fin)
 
 if df_resumen.empty:
     st.warning("Sin datos para el período seleccionado. Prueba con 'Últimos 7 días'.")

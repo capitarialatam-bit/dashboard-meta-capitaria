@@ -107,9 +107,11 @@ def _post(tool: str, body: dict, api_key: str) -> dict:
     return resp.json()
 
 
-def _wait_result(schedule_id: str, api_key: str, max_tries: int = 20) -> list:
+def _wait_result(schedule_id: str, api_key: str, max_tries: int = 15) -> list:
+    # Polling agresivo al inicio, luego más espaciado
+    delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
     for i in range(max_tries):
-        time.sleep(3 if i < 5 else 2)
+        time.sleep(delays[i] if i < len(delays) else 3)
         result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
         data = result.get("data", {})
         if data.get("status") == "completed" or data.get("success"):
