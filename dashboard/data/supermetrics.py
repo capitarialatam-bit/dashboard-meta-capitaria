@@ -107,17 +107,22 @@ def _post(tool: str, body: dict, api_key: str) -> dict:
     return resp.json()
 
 
-def _wait_result(schedule_id: str, api_key: str, max_tries: int = 15) -> list:
-    # Polling agresivo al inicio, luego más espaciado
-    delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+def _wait_result(schedule_id: str, api_key: str, max_tries: int = 25) -> list:
+    # Polling: rápido al inicio, luego cada 3 s — hasta ~75 seg total
+    delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
     for i in range(max_tries):
         time.sleep(delays[i] if i < len(delays) else 3)
         result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
         data = result.get("data", {})
-        if data.get("status") == "completed" or data.get("success"):
+        status = data.get("status", "")
+        # Si completó con datos → retornar
+        if (status == "completed" or data.get("success")) and data.get("data"):
             rows = data.get("data", [])
-            if rows:
+            if rows and len(rows) >= 2:   # al menos header + 1 fila de datos
                 return rows
+        # Si falló definitivamente → salir sin esperar más
+        if status in ("failed", "error"):
+            break
     return []
 
 
