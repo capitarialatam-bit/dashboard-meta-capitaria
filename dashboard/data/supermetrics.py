@@ -110,23 +110,30 @@ def _post(tool: str, body: dict, api_key: str) -> dict:
 def _wait_result(schedule_id: str, api_key: str, max_tries: int = 25) -> list:
     # Polling: rápido al inicio, luego cada 3 s — hasta ~75 seg total
     delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    print(f"[polling] iniciando con schedule_id={schedule_id}")
     for i in range(max_tries):
-        time.sleep(delays[i] if i < len(delays) else 3)
+        delay = delays[i] if i < len(delays) else 3
+        time.sleep(delay)
         try:
             result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
-        except Exception:
-            continue                          # error de red puntual → reintentar
-        # "data" puede ser None en respuestas intermedias → usar or {} para evitar crash
+        except Exception as e:
+            print(f"[polling] intento {i+1}: error de red - {str(e)}")
+            continue
         data = result.get("data") or {}
         status = data.get("status", "")
+        print(f"[polling] intento {i+1}: status={status}, filas={len(data.get('data') or [])}")
         if status == "completed" or data.get("success"):
             rows = data.get("data") or []
-            if rows and len(rows) >= 2:       # header + al menos 1 fila de datos
+            if rows and len(rows) >= 2:
+                print(f"[polling] éxito: {len(rows)} filas")
                 return rows
-            if status == "completed":         # completó pero sin datos reales
+            if status == "completed":
+                print(f"[polling] completado pero sin datos")
                 return []
         if status in ("failed", "error"):
+            print(f"[polling] error de query: {status}")
             break
+    print(f"[polling] timeout después de {max_tries} intentos")
     return []
 
 
@@ -206,14 +213,16 @@ def query_campanas(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd
     return resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
 
 
-def query_rendimiento(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+def query_rendimiento(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
     """Rendimiento por anuncio con creativo, métricas y formato condicional."""
+    if not api_key:
+        api_key = os.getenv("SUPERMETRICS_API_KEY", "")
     df = _run_query(
         ["adcampaign_name", "adset_name", "ad_name",
          "creative_thumbnail_url", "video_asset_thumbnail_url",
          "cost_usd", "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead",
          "impressions", "reach", "unique_link_CTR", "unique_outbound_CTR"],
-        fecha_inicio, fecha_fin,
+        fecha_inicio, fecha_fin, api_key,
     )
     if df.empty:
         return df

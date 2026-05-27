@@ -26,11 +26,16 @@ def _query_supermetrics(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """
     api_key = _get_api_key()
     if not api_key:
+        st.error("❌ API KEY no encontrada en env vars ni en secrets")
         return pd.DataFrame()
     try:
         from data.supermetrics import _query_base
-        return _query_base(fecha_inicio, fecha_fin, api_key)
+        result = _query_base(fecha_inicio, fecha_fin, api_key)
+        if result.empty:
+            st.warning(f"⚠️ Sin datos para {fecha_inicio} a {fecha_fin}")
+        return result
     except Exception as e:
+        st.error(f"❌ Error Supermetrics: {str(e)}")
         print(f"[connector] Supermetrics error: {e}")
         return pd.DataFrame()
 
