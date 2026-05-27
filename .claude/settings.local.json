@@ -9,7 +9,21 @@
       "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\.streamlit\")",
       "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\credentials\")",
       "WebFetch(domain:mcp.supermetrics.com)",
-      "Bash(pip freeze *)"
+      "Bash(pip freeze *)",
+      "Bash(python data/debug_paises.py)",
+      "PowerShell(python -c \"import json; d=json.load\\(open\\('C:/Users/Andr�sArias/Downloads/formularios-nativos-600396fca61a.json'\\)\\); print\\(d['client_email']\\)\")",
+      "PowerShell(python -c \"import json; d=json.load\\(open\\('C:/Users/Andr�sArias/Downloads/formularios-nativos-600396fca61a.json'\\)\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\Andr�sArias\\\\Downloads\\\\ISO.png\" \"c:\\\\PROYECTOS\\\\mcp-meta-capitaria\\\\dashboard\\\\assets\\\\favicon.png\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python dashboard/data/debug_hoy_peru.py)",
+      "Bash(mkdir -p \"C:/Users/AndrésArias/OneDrive - CAPITARIA/Escritorio/dashboard-capitaria-entrega/dashboard/.streamlit\")",
+      "Bash(mkdir -p \"C:/Users/AndrésArias/OneDrive - CAPITARIA/Escritorio/dashboard-capitaria-entrega/dashboard/components\")",
+      "Bash(mkdir -p \"C:/Users/AndrésArias/OneDrive - CAPITARIA/Escritorio/dashboard-capitaria-entrega/dashboard/data\")",
+      "Bash(mkdir -p \"C:/Users/AndrésArias/OneDrive - CAPITARIA/Escritorio/dashboard-capitaria-entrega/dashboard/assets\")",
+      "Bash(cp c:/PROYECTOS/mcp-meta-capitaria/dashboard/app.py \"C:/Users/AndrésArias/OneDrive - CAPITARIA/Escritorio/dashboard-capitaria-entrega/dashboard/\")",
+      "Bash(python -c ' *)"
     ]
   }
 }
