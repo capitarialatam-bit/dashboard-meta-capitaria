@@ -16,9 +16,12 @@ from datetime import date, timedelta
 sys.stdout.reconfigure(encoding='utf-8')
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+# Agregar dashboard/ al path para que funcione "from data.supermetrics import ..."
+DASHBOARD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, DASHBOARD_DIR)
+
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(DASHBOARD_DIR, '.env'))
 
 import pandas as pd
 import gspread
