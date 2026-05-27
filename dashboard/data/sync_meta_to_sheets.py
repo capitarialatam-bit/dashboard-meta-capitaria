@@ -121,10 +121,16 @@ def main():
     wb  = gc.open_by_key(SHEET_ID)
 
     if not df_resumen.empty:
-        # Agregar fecha de sync
-        df_resumen["fecha"] = df_resumen["fecha"].astype(str)
+        # Agregar por (fecha, pais) antes de escribir — evita duplicados de campaña/adset
+        df_agg = (df_resumen
+                  .groupby(["fecha", "pais"])
+                  .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
+                  .reset_index())
+        df_agg["fecha"]  = df_agg["fecha"].astype(str)
+        df_agg["gasto"]  = df_agg["gasto"].round(2)
+        df_agg["leads"]  = df_agg["leads"].astype(int)
         ws_r = _get_or_create(wb, TAB_RESUMEN, ["fecha", "pais", "gasto", "leads"])
-        escribir_sheet(ws_r, df_resumen[["fecha", "pais", "gasto", "leads"]], ["fecha", "pais", "gasto", "leads"])
+        escribir_sheet(ws_r, df_agg, ["fecha", "pais", "gasto", "leads"])
 
     if not df_campanas.empty:
         ws_c = _get_or_create(wb, TAB_CAMPANAS,
