@@ -102,17 +102,18 @@ def _headers(api_key: str) -> dict:
 
 def _post(tool: str, body: dict, api_key: str) -> dict:
     url = f"{MCP_BASE}/{tool}"
-    resp = requests.post(url, json=body, headers=_headers(api_key), timeout=60)
+    resp = requests.post(url, json=body, headers=_headers(api_key), timeout=120)
     resp.raise_for_status()
     return resp.json()
 
 
-def _wait_result(schedule_id: str, api_key: str, max_tries: int = 25) -> list:
-    # Polling: rápido al inicio, luego cada 3 s — hasta ~75 seg total
-    delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+def _wait_result(schedule_id: str, api_key: str, max_tries: int = 50) -> list:
+    # Polling: rápido al inicio, luego cada 3-5 s — hasta ~150 seg total
+    delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+              4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
     print(f"[polling] iniciando con schedule_id={schedule_id}")
     for i in range(max_tries):
-        delay = delays[i] if i < len(delays) else 3
+        delay = delays[i] if i < len(delays) else 4
         time.sleep(delay)
         try:
             result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
