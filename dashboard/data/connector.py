@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import streamlit as st
-from datetime import date
+from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
@@ -73,21 +73,64 @@ def _save_to_sheets(df: pd.DataFrame, sheet_name: str):
         return False
 
 
-def _load_from_sheets(sheet_name: str) -> pd.DataFrame:
-    """Cargar datos desde Google Sheets."""
+def _load_from_sheets(sheet_name: str) -> tuple[pd.DataFrame, str]:
+    """Cargar datos desde Google Sheets. Retorna (DataFrame, timestamp_ultima_actualizacion)."""
     if not SHEET_ID:
-        return pd.DataFrame()
+        return pd.DataFrame(), ""
     try:
         ws = _get_or_create_worksheet(sheet_name)
         if not ws:
-            return pd.DataFrame()
+            return pd.DataFrame(), ""
         data = ws.get_all_values()
         if not data or len(data) < 2:
-            return pd.DataFrame()
-        return pd.DataFrame(data[1:], columns=data[0])
+            return pd.DataFrame(), ""
+
+        df = pd.DataFrame(data[1:], columns=data[0])
+
+        # Obtener última actualización de la primera fila (la más reciente está abajo)
+        if "updated_at" in df.columns:
+            last_update = df.iloc[-1]["updated_at"] if len(df) > 0 else ""
+            return df, last_update
+
+        return df, ""
     except Exception as e:
         print(f"[sheets] Error cargando de {sheet_name}: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(), ""
+
+
+def _is_data_stale(timestamp_str: str, hours: int = 24) -> bool:
+    """Verificar si los datos tienen más de X horas."""
+    if not timestamp_str:
+        return True
+    try:
+        last_update = datetime.fromisoformat(timestamp_str)
+        return datetime.now() - last_update > timedelta(hours=hours)
+    except Exception:
+        return True
+
+
+def _append_to_sheets(df: pd.DataFrame, sheet_name: str):
+    """Agregar filas a Google Sheets (append, sin clear). Agrega timestamp."""
+    if df.empty or not SHEET_ID:
+        return False
+    try:
+        ws = _get_or_create_worksheet(sheet_name)
+        if not ws:
+            return False
+
+        # Agregar columna de timestamp si no existe
+        if "updated_at" not in df.columns:
+            df = df.copy()
+            df.insert(0, "updated_at", datetime.now().isoformat())
+
+        # Append rows (sin limpiar histórico)
+        rows = df.values.tolist()
+        ws.append_rows(rows)
+        print(f"[sheets] Agregados {len(df)} registros a {sheet_name}")
+        return True
+    except Exception as e:
+        print(f"[sheets] Error agregando a {sheet_name}: {e}")
+        return False
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -113,18 +156,22 @@ def _query_supermetrics(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 
 
 def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
-    """Gasto y leads por país. Guarda/carga de Google Sheets."""
+    """Gasto y leads por país. Refrescar si datos > 24h. Histórico permanente en Sheets."""
     sheet_name = f"resumen_{fecha_inicio}_{fecha_fin}"
 
-    # Intentar cargar de Sheets primero
-    df_sheets = _load_from_sheets(sheet_name)
-    if not df_sheets.empty:
-        print(f"[get_resumen] Cargando de Sheets: {sheet_name}")
+    # Cargar de Sheets
+    df_sheets, last_update = _load_from_sheets(sheet_name)
+
+    # Si hay datos y son frescos (< 24h), retornar
+    if not df_sheets.empty and not _is_data_stale(last_update, hours=24):
+        print(f"[get_resumen] Datos frescos de Sheets ({last_update})")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
         df_sheets["gasto"] = pd.to_numeric(df_sheets["gasto"], errors="coerce").fillna(0)
         df_sheets["leads"] = pd.to_numeric(df_sheets["leads"], errors="coerce").fillna(0)
         return df_sheets
 
-    # Si no hay en Sheets, llamar Supermetrics
+    # Datos ausentes o stale → refrescar desde Supermetrics
+    print(f"[get_resumen] Refrescando desde Supermetrics...")
     df = _query_supermetrics(fecha_inicio, fecha_fin)
     if df.empty:
         return pd.DataFrame(columns=["pais", "gasto", "leads"])
@@ -133,24 +180,31 @@ def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
                   .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
                   .reset_index())
 
-    # Guardar en Sheets
-    _save_to_sheets(resultado, sheet_name)
-    return resultado
+    # Agregar timestamp e insertar en Sheets (append, sin clear)
+    resultado["updated_at"] = datetime.now().isoformat()
+    _append_to_sheets(resultado, sheet_name)
+
+    # Retornar sin timestamp
+    return resultado[["pais", "gasto", "leads"]]
 
 
 def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
-    """Desglose por campaña. Guarda/carga de Google Sheets."""
+    """Desglose por campaña. Refrescar si datos > 24h. Histórico permanente en Sheets."""
     sheet_name = f"campanas_{fecha_inicio}_{fecha_fin}"
 
-    # Intentar cargar de Sheets primero
-    df_sheets = _load_from_sheets(sheet_name)
-    if not df_sheets.empty:
-        print(f"[get_campanas] Cargando de Sheets: {sheet_name}")
+    # Cargar de Sheets
+    df_sheets, last_update = _load_from_sheets(sheet_name)
+
+    # Si hay datos y son frescos (< 24h), retornar
+    if not df_sheets.empty and not _is_data_stale(last_update, hours=24):
+        print(f"[get_campanas] Datos frescos de Sheets ({last_update})")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
         for col in ["gasto", "costo_lead", "leads"]:
             df_sheets[col] = pd.to_numeric(df_sheets[col], errors="coerce").fillna(0)
         return df_sheets
 
-    # Si no hay en Sheets, llamar Supermetrics
+    # Datos ausentes o stale → refrescar desde Supermetrics
+    print(f"[get_campanas] Refrescando desde Supermetrics...")
     df = _query_supermetrics(fecha_inicio, fecha_fin)
     if df.empty:
         return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
@@ -165,6 +219,9 @@ def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     )
     resultado = resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
 
-    # Guardar en Sheets
-    _save_to_sheets(resultado, sheet_name)
-    return resultado
+    # Agregar timestamp e insertar en Sheets (append, sin clear)
+    resultado["updated_at"] = datetime.now().isoformat()
+    _append_to_sheets(resultado, sheet_name)
+
+    # Retornar sin timestamp
+    return resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
