@@ -107,9 +107,9 @@ def _post(tool: str, body: dict, api_key: str) -> dict:
     return resp.json()
 
 
-def _wait_result(schedule_id: str, api_key: str, max_tries: int = 30) -> list:
-    for _ in range(max_tries):
-        time.sleep(2)
+def _wait_result(schedule_id: str, api_key: str, max_tries: int = 20) -> list:
+    for i in range(max_tries):
+        time.sleep(3 if i < 5 else 2)
         result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
         data = result.get("data", {})
         if data.get("status") == "completed" or data.get("success"):
