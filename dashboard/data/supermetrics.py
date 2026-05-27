@@ -112,15 +112,19 @@ def _wait_result(schedule_id: str, api_key: str, max_tries: int = 25) -> list:
     delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
     for i in range(max_tries):
         time.sleep(delays[i] if i < len(delays) else 3)
-        result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
-        data = result.get("data", {})
+        try:
+            result = _post("get_async_query_results", {"schedule_id": schedule_id}, api_key)
+        except Exception:
+            continue                          # error de red puntual → reintentar
+        # "data" puede ser None en respuestas intermedias → usar or {} para evitar crash
+        data = result.get("data") or {}
         status = data.get("status", "")
-        # Si completó con datos → retornar
-        if (status == "completed" or data.get("success")) and data.get("data"):
-            rows = data.get("data", [])
-            if rows and len(rows) >= 2:   # al menos header + 1 fila de datos
+        if status == "completed" or data.get("success"):
+            rows = data.get("data") or []
+            if rows and len(rows) >= 2:       # header + al menos 1 fila de datos
                 return rows
-        # Si falló definitivamente → salir sin esperar más
+            if status == "completed":         # completó pero sin datos reales
+                return []
         if status in ("failed", "error"):
             break
     return []
@@ -146,58 +150,51 @@ def _run_query(fields: list, fecha_inicio: date, fecha_fin: date, api_key: str) 
     return pd.DataFrame(rows[1:], columns=rows[0])
 
 
-def query_meta_ads(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
-    """Resumen por país usando nomenclatura de campañas."""
+def _query_base(fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataFrame:
+    """
+    UNA sola llamada a Supermetrics con todos los campos necesarios.
+    Incluye Date + campaign_id para poder derivar resumen Y campañas.
+    """
     df = _run_query(
-        ["Date", "adcampaign_name", "adset_name", "cost_usd",
+        ["Date", "adcampaign_id", "adcampaign_name", "adset_name", "cost_usd",
          "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
         fecha_inicio, fecha_fin, api_key,
     )
     if df.empty:
         return df
-
     df = df.rename(columns={
-        "Campaign name": "campana",
-        "Ad set name": "adset",
-        "Cost (USD)": "gasto",
+        "Campaign ID":       "campaign_id",
+        "Campaign name":     "campana",
+        "Ad set name":       "adset",
+        "Cost (USD)":        "gasto",
         "On-Facebook leads": "leads_form",
-        "Website leads": "leads_web",
+        "Website leads":     "leads_web",
     })
-    df["fecha"] = pd.to_datetime(df["Date"]).dt.date
-    df["gasto"]      = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
-    df["leads_form"] = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
-    df["leads_web"]  = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
-    df["leads"]      = (df["leads_form"] + df["leads_web"]).astype(int)
-    df["pais"] = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
-    df = df[~df["campana"].str.upper().str.contains("-EP", na=False)]
-    return df[["fecha", "pais", "gasto", "leads"]]
-
-
-def query_campanas(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
-    """Desglose por campaña con país detectado por nomenclatura."""
-    df = _run_query(
-        ["adcampaign_id", "adcampaign_name", "adset_name", "cost_usd",
-         "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
-        fecha_inicio, fecha_fin, api_key,
-    )
-    if df.empty:
-        return df
-
-    df = df.rename(columns={
-        "Campaign ID":      "campaign_id",
-        "Campaign name":    "campana",
-        "Ad set name":      "adset",
-        "Cost (USD)":       "gasto",
-        "On-Facebook leads": "leads_form",
-        "Website leads":    "leads_web",
-    })
+    df["fecha"]       = pd.to_datetime(df["Date"]).dt.date
     df["gasto"]       = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
     df["leads_form"]  = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
     df["leads_web"]   = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
     df["leads"]       = (df["leads_form"] + df["leads_web"]).astype(int)
     df["pais"]        = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
     df["campaign_id"] = df["campaign_id"].astype(str)
+    # Excluir campañas de eventos presenciales
+    df = df[~df["campana"].str.upper().str.contains("-EP", na=False)]
+    return df
 
+
+def query_meta_ads(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
+    """Resumen por (fecha, pais). Usa _query_base para evitar doble llamada."""
+    df = _query_base(fecha_inicio, fecha_fin, api_key)
+    if df.empty:
+        return df
+    return df[["fecha", "pais", "gasto", "leads"]]
+
+
+def query_campanas(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
+    """Desglose por campaña. Usa _query_base para evitar doble llamada."""
+    df = _query_base(fecha_inicio, fecha_fin, api_key)
+    if df.empty:
+        return df
     resultado = (
         df.groupby(["pais", "campana", "campaign_id"])
         .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
