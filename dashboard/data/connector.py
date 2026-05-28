@@ -158,6 +158,9 @@ def _query_supermetrics(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """Gasto y leads por país. Refrescar si datos > 24h. Respaldo diario en Sheets."""
     sheet_name = "Resumen_Diario"
+    hoy = date.today()
+
+    print(f"[get_resumen] INICIO: fecha_fin={fecha_fin}, hoy={hoy}, son iguales={fecha_fin == hoy}")
 
     # Cargar de Sheets
     df_sheets, last_update = _load_from_sheets(sheet_name)
@@ -166,12 +169,14 @@ def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     if not df_sheets.empty and not _is_data_stale(last_update, hours=24):
         # Validar que los datos corresponden al rango solicitado (Sheets guarda data del día)
         # Si el usuario pide rango específico (ej: 26/05 a 26/05) y es hoy, validar
-        if fecha_fin == date.today():  # Si pide hoy o un rango que incluye hoy
-            print(f"[get_resumen] Datos frescos de Sheets ({last_update})")
+        if fecha_fin == hoy:  # Si pide hoy o un rango que incluye hoy
+            print(f"[get_resumen] Datos frescos de Sheets ({last_update}) - USANDO CACHE")
             df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
             df_sheets["gasto"] = pd.to_numeric(df_sheets["gasto"], errors="coerce").fillna(0)
             df_sheets["leads"] = pd.to_numeric(df_sheets["leads"], errors="coerce").fillna(0)
             return df_sheets
+        else:
+            print(f"[get_resumen] Sheets tiene data de hoy pero usuario pide {fecha_fin} - IGNORANDO CACHE")
 
     # Datos ausentes, stale, o no corresponden a fecha solicitada → refrescar desde Supermetrics
     print(f"[get_resumen] Refrescando desde Supermetrics para {fecha_inicio} a {fecha_fin}...")
