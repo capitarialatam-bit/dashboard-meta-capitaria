@@ -46,12 +46,16 @@ st.markdown(
 )
 
 hoy = date.today()
-col_logo, col_fecha = st.columns([3, 1])
+col_logo, col_fecha, col_refresh = st.columns([2.7, 1, 0.3])
 with col_logo:
     st.markdown(
         f"<img src='data:image/png;base64,{_logo_b64}' style='height:52px;object-fit:contain;margin-top:8px;'>",
         unsafe_allow_html=True,
     )
+with col_refresh:
+    if st.button("↻", key="refresh_cache", help="Limpiar caché"):
+        st.cache_data.clear()
+        st.rerun()
 with col_fecha:
     PRESETS = {
         "Hoy":            (hoy, hoy),
@@ -60,7 +64,7 @@ with col_fecha:
         "Últimos 30 días":(hoy - timedelta(days=29), hoy),
         "Personalizado":  None,
     }
-    preset = st.selectbox("Período", list(PRESETS.keys()), index=2, label_visibility="collapsed")
+    preset = st.selectbox("Período", list(PRESETS.keys()), index=1, label_visibility="collapsed")
     if PRESETS[preset]:
         fecha_inicio, fecha_fin = PRESETS[preset]
     else:
