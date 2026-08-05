@@ -107,6 +107,10 @@ def _post(tool: str, body: dict, api_key: str) -> dict:
     return resp.json()
 
 
+class SupermetricsError(Exception):
+    """Error definitivo devuelto por Supermetrics (permisos, cuenta inválida, etc.)."""
+
+
 def _wait_result(schedule_id: str, api_key: str, max_tries: int = 50) -> list:
     # Polling: rápido al inicio, luego cada 3-5 s — hasta ~150 seg total
     delays = [1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -120,6 +124,14 @@ def _wait_result(schedule_id: str, api_key: str, max_tries: int = 50) -> list:
         except Exception as e:
             print(f"[polling] intento {i+1}: error de red - {str(e)}")
             continue
+
+        # Error definitivo del lado de Supermetrics (ej. permisos de la cuenta) → no tiene
+        # sentido seguir reintentando 150s, hay que fallar rápido y mostrarlo.
+        if result.get("success") is False:
+            error_msg = result.get("error", "Error desconocido de Supermetrics")
+            print(f"[polling] intento {i+1}: ERROR DEFINITIVO - {error_msg}")
+            raise SupermetricsError(error_msg)
+
         data = result.get("data") or {}
         status = data.get("status", "")
         print(f"[polling] intento {i+1}: status={status}, filas={len(data.get('data') or [])}")
