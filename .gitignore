@@ -19,8 +19,10 @@ dist/
 build/
 .eggs/
 
-# Streamlit cache
+# Streamlit cache / secretos (patrón sin "/" inicial: matchea en cualquier subcarpeta,
+# incluyendo dashboard/.streamlit/secrets.toml, no solo en la raíz del repo)
 .streamlit/secrets.toml
+**/.streamlit/secrets.toml
 
 # Node (si aplica)
 node_modules/
