@@ -197,8 +197,10 @@ def _query_base(fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataFra
     df["leads"]       = (df["leads_form"] + df["leads_web"]).astype(int)
     df["pais"]        = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
     df["campaign_id"] = df["campaign_id"].astype(str)
-    # Excluir campañas de eventos presenciales
-    df = df[~df["campana"].str.upper().str.contains("-EP", na=False)]
+    # Nota: ya no se excluyen aquí las campañas de eventos presenciales (-EP).
+    # _query_base es la fuente compartida por resumen y campañas; cada
+    # consumidor decide qué excluir de sus propios agregados
+    # (ver data/campaign_rules.py).
     return df
 
 
@@ -224,6 +226,44 @@ def query_campanas(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd
         lambda r: r["gasto"] / r["leads"] if r["leads"] > 0 else 0, axis=1
     )
     return resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
+
+
+def _query_genero(fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataFrame:
+    """
+    Desglose por campaña y género (breakdown 'gender' de Meta Ads: male/female/unknown).
+
+    Llamada independiente de _query_base a propósito: agregar 'gender' a la
+    consulta compartida multiplicaría cada fila por género (hasta 3x) y podría
+    superar max_rows en rangos largos, afectando silenciosamente los agregados
+    de Control Diario y Campañas por país. Se mantiene aislada y cacheada aparte.
+    """
+    df = _run_query(
+        ["adcampaign_id", "adcampaign_name", "adset_name", "gender", "cost_usd",
+         "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
+        fecha_inicio, fecha_fin, api_key,
+    )
+    if df.empty:
+        return df
+    df = df.rename(columns={
+        "Campaign ID":       "campaign_id",
+        "Campaign name":     "campana",
+        "Ad set name":       "adset",
+        "Gender":            "gender",
+        "Cost (USD)":        "gasto",
+        "On-Facebook leads": "leads_form",
+        "Website leads":     "leads_web",
+    })
+    df["gasto"]       = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"]  = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]   = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
+    df["leads"]       = (df["leads_form"] + df["leads_web"]).astype(int)
+    df["pais"]        = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["campaign_id"] = df["campaign_id"].astype(str)
+    df["gender"]      = (
+        df["gender"].astype(str).str.strip().str.lower()
+        .replace({"": "unknown", "nan": "unknown", "none": "unknown"})
+    )
+    return df[["pais", "campaign_id", "campana", "gender", "gasto", "leads"]]
 
 
 def query_rendimiento(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:

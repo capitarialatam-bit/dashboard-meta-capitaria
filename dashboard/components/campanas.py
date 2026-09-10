@@ -2,10 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 from config import PAISES
-
-
-def _es_evento_presencial(nombre: str) -> bool:
-    return "-EP" in str(nombre).upper()
+from data.campaign_rules import es_evento_presencial, excluir_de_gasto_total
 
 
 def render_campanas(df: pd.DataFrame, pais: str):
@@ -14,14 +11,19 @@ def render_campanas(df: pd.DataFrame, pais: str):
 
     df_pais = df[df["pais"] == pais].copy() if tiene_datos else pd.DataFrame(columns=list(COLS_REQUERIDAS))
 
-    # Separar EP del conteo general
+    # Leads: excluye eventos presenciales (comportamiento existente, sin cambios)
     if not df_pais.empty:
-        df_normales = df_pais[~df_pais["campana"].apply(_es_evento_presencial)]
+        df_normales = df_pais[~df_pais["campana"].apply(es_evento_presencial)]
     else:
         df_normales = df_pais
-
-    gasto_total = df_normales["gasto"].sum() if not df_normales.empty else 0.0
     leads_total = int(df_normales["leads"].sum()) if not df_normales.empty else 0
+
+    # Gasto: excluye eventos presenciales Y webinars (código "-WE" en el nombre)
+    if not df_pais.empty:
+        df_gasto = df_pais[~df_pais["campana"].apply(excluir_de_gasto_total)]
+    else:
+        df_gasto = df_pais
+    gasto_total = df_gasto["gasto"].sum() if not df_gasto.empty else 0.0
 
     # Detectar nombres duplicados para mostrar ID en esos casos
     nombres_duplicados = set(
@@ -64,7 +66,7 @@ def render_campanas(df: pd.DataFrame, pais: str):
     # ── Tabla ─────────────────────────────────────────────────────────────────
     filas = ""
     for i, row in df_sorted.iterrows():
-        es_ep = _es_evento_presencial(row["campana"])
+        es_ep = es_evento_presencial(row["campana"])
         costo = f"${row['costo_lead']:,.2f}" if row["costo_lead"] > 0 else "$0"
 
         # Badge EP

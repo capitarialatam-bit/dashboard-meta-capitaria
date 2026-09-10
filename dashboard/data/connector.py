@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
 
+from data.campaign_rules import es_evento_presencial
+
 load_dotenv()
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
@@ -160,38 +162,40 @@ def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     sheet_name = "Resumen_Diario"
     hoy = date.today()
 
-    print(f"[get_resumen] INICIO: fecha_fin={fecha_fin}, hoy={hoy}, son iguales={fecha_fin == hoy}")
-
     # Cargar de Sheets
     df_sheets, last_update = _load_from_sheets(sheet_name)
 
-    # Si hay datos y son frescos (< 24h) Y corresponden a la fecha solicitada, retornar
-    if not df_sheets.empty and not _is_data_stale(last_update, hours=24):
-        # Validar que los datos corresponden al rango solicitado (Sheets guarda data del día)
-        # Si el usuario pide rango específico (ej: 26/05 a 26/05) y es hoy, validar
-        if fecha_fin == hoy:  # Si pide hoy o un rango que incluye hoy
-            print(f"[get_resumen] Datos frescos de Sheets ({last_update}) - USANDO CACHE")
-            df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
-            df_sheets["gasto"] = pd.to_numeric(df_sheets["gasto"], errors="coerce").fillna(0)
-            df_sheets["leads"] = pd.to_numeric(df_sheets["leads"], errors="coerce").fillna(0)
-            return df_sheets
-        else:
-            print(f"[get_resumen] Sheets tiene data de hoy pero usuario pide {fecha_fin} - IGNORANDO CACHE")
+    # Si hay datos frescos (< 24h) Y corresponden a HOY, usar caché
+    if (not df_sheets.empty and
+        not _is_data_stale(last_update, hours=24) and
+        fecha_fin == hoy):
+        print(f"[get_resumen] Datos frescos de Sheets ({last_update}) para hoy - USANDO CACHE")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
+        df_sheets["gasto"] = pd.to_numeric(df_sheets["gasto"], errors="coerce").fillna(0)
+        df_sheets["leads"] = pd.to_numeric(df_sheets["leads"], errors="coerce").fillna(0)
+        return df_sheets
 
-    # Datos ausentes, stale, o no corresponden a fecha solicitada → refrescar desde Supermetrics
+    # Datos ausentes, stale, o usuario pide fecha diferente → refrescar desde Supermetrics
     print(f"[get_resumen] Refrescando desde Supermetrics para {fecha_inicio} a {fecha_fin}...")
     df = _query_supermetrics(fecha_inicio, fecha_fin)
     if df.empty:
+        print(f"[get_resumen] Supermetrics sin datos para {fecha_inicio} a {fecha_fin}")
         return pd.DataFrame(columns=["pais", "gasto", "leads"])
+
+    # Excluir eventos presenciales del resumen (igual que antes, cuando este
+    # filtro vivía en _query_base). No incluye webinars: ese resumen no se
+    # vio afectado por el pedido de excluir webinars del gasto.
+    df = df[~df["campana"].apply(es_evento_presencial)]
 
     resultado = (df.groupby("pais")
                   .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
                   .reset_index())
 
     # Guardar en Sheets SOLO si es data de hoy (para caché diario)
-    if fecha_fin == date.today():
+    if fecha_fin == hoy:
         resultado["updated_at"] = datetime.now().isoformat()
         _save_to_sheets(resultado, sheet_name)
+        print(f"[get_resumen] Guardados datos de hoy en Sheets")
 
     # Retornar sin timestamp
     return resultado[["pais", "gasto", "leads"]]
@@ -200,24 +204,26 @@ def get_resumen_por_pais(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
 def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     """Desglose por campaña. Refrescar si datos > 24h. Respaldo diario en Sheets."""
     sheet_name = "Campanas_Diario"
+    hoy = date.today()
 
     # Cargar de Sheets
     df_sheets, last_update = _load_from_sheets(sheet_name)
 
-    # Si hay datos y son frescos (< 24h) Y corresponden a la fecha solicitada, retornar
-    if not df_sheets.empty and not _is_data_stale(last_update, hours=24):
-        # Validar que los datos corresponden al rango solicitado (Sheets guarda data del día)
-        if fecha_fin == date.today():  # Si pide hoy o un rango que incluye hoy
-            print(f"[get_campanas] Datos frescos de Sheets ({last_update})")
-            df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
-            for col in ["gasto", "costo_lead", "leads"]:
-                df_sheets[col] = pd.to_numeric(df_sheets[col], errors="coerce").fillna(0)
-            return df_sheets
+    # Si hay datos frescos (< 24h) Y corresponden a HOY, usar caché
+    if (not df_sheets.empty and
+        not _is_data_stale(last_update, hours=24) and
+        fecha_fin == hoy):
+        print(f"[get_campanas] Datos frescos de Sheets ({last_update}) para hoy - USANDO CACHE")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
+        for col in ["gasto", "costo_lead", "leads"]:
+            df_sheets[col] = pd.to_numeric(df_sheets[col], errors="coerce").fillna(0)
+        return df_sheets
 
-    # Datos ausentes, stale, o no corresponden a fecha solicitada → refrescar desde Supermetrics
+    # Datos ausentes, stale, o usuario pide fecha diferente → refrescar desde Supermetrics
     print(f"[get_campanas] Refrescando desde Supermetrics para {fecha_inicio} a {fecha_fin}...")
     df = _query_supermetrics(fecha_inicio, fecha_fin)
     if df.empty:
+        print(f"[get_campanas] Supermetrics sin datos para {fecha_inicio} a {fecha_fin}")
         return pd.DataFrame(columns=["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"])
 
     resultado = (
@@ -231,9 +237,71 @@ def get_campanas(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
     resultado = resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
 
     # Guardar en Sheets SOLO si es data de hoy (para caché diario)
-    if fecha_fin == date.today():
+    if fecha_fin == hoy:
         resultado["updated_at"] = datetime.now().isoformat()
         _save_to_sheets(resultado, sheet_name)
+        print(f"[get_campanas] Guardados datos de hoy en Sheets")
 
     # Retornar sin timestamp
     return resultado[["pais", "campana", "campaign_id", "gasto", "costo_lead", "leads"]]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _query_supermetrics_genero(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+    """UNA sola llamada a Supermetrics con breakdown de género (cacheada 5 min)."""
+    api_key = _get_api_key()
+    if not api_key:
+        print("❌ API KEY no encontrada en env vars ni en secrets")
+        return pd.DataFrame()
+    try:
+        from data.supermetrics import _query_genero
+        result = _query_genero(fecha_inicio, fecha_fin, api_key)
+        if result.empty:
+            print(f"⚠️ Sin datos de género para {fecha_inicio} a {fecha_fin}")
+        return result
+    except Exception as e:
+        print(f"[connector] Supermetrics error (género): {e}")
+        return pd.DataFrame()
+
+
+def get_campanas_genero(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+    """Desglose por campaña y género. Refrescar si datos > 24h. Respaldo diario en Sheets."""
+    sheet_name = "Genero_Diario"
+    hoy = date.today()
+
+    # Cargar de Sheets
+    df_sheets, last_update = _load_from_sheets(sheet_name)
+
+    # Si hay datos frescos (< 24h) Y corresponden a HOY, usar caché
+    if (not df_sheets.empty and
+        not _is_data_stale(last_update, hours=24) and
+        fecha_fin == hoy):
+        print(f"[get_campanas_genero] Datos frescos de Sheets ({last_update}) para hoy - USANDO CACHE")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
+        for col in ["gasto", "leads"]:
+            df_sheets[col] = pd.to_numeric(df_sheets[col], errors="coerce").fillna(0)
+        return df_sheets
+
+    # Datos ausentes, stale, o usuario pide fecha diferente → refrescar desde Supermetrics
+    print(f"[get_campanas_genero] Refrescando desde Supermetrics para {fecha_inicio} a {fecha_fin}...")
+    df = _query_supermetrics_genero(fecha_inicio, fecha_fin)
+    if df.empty:
+        print(f"[get_campanas_genero] Supermetrics sin datos para {fecha_inicio} a {fecha_fin}")
+        return pd.DataFrame(columns=["pais", "campaign_id", "campana", "gender", "gasto", "leads"])
+
+    # Consolidar por campaign_id antes de mostrar — evita duplicar gasto/leads
+    # si Meta devuelve múltiples filas (ej. por ad set) para la misma campaña+género.
+    resultado = (
+        df.groupby(["pais", "campaign_id", "campana", "gender"])
+        .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
+        .reset_index()
+    )
+
+    # Guardar en Sheets SOLO si es data de hoy (para caché diario)
+    if fecha_fin == hoy:
+        resultado_guardar = resultado.copy()
+        resultado_guardar["updated_at"] = datetime.now().isoformat()
+        _save_to_sheets(resultado_guardar, sheet_name)
+        print(f"[get_campanas_genero] Guardados datos de hoy en Sheets")
+
+    return resultado[["pais", "campaign_id", "campana", "gender", "gasto", "leads"]]
