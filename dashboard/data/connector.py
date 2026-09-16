@@ -305,3 +305,57 @@ def get_campanas_genero(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
         print(f"[get_campanas_genero] Guardados datos de hoy en Sheets")
 
     return resultado[["pais", "campaign_id", "campana", "gender", "gasto", "leads"]]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _query_supermetrics_edad(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+    """UNA sola llamada a Supermetrics con breakdown de edad (cacheada 5 min)."""
+    api_key = _get_api_key()
+    if not api_key:
+        print("❌ API KEY no encontrada en env vars ni en secrets")
+        return pd.DataFrame()
+    try:
+        from data.supermetrics import _query_edad
+        result = _query_edad(fecha_inicio, fecha_fin, api_key)
+        if result.empty:
+            print(f"⚠️ Sin datos de edad para {fecha_inicio} a {fecha_fin}")
+        return result
+    except Exception as e:
+        print(f"[connector] Supermetrics error (edad): {e}")
+        return pd.DataFrame()
+
+
+def get_campanas_edad(fecha_inicio: date, fecha_fin: date) -> pd.DataFrame:
+    """Desglose por campaña y edad. Refrescar si datos > 24h. Respaldo diario en Sheets."""
+    sheet_name = "Edad_Diario"
+    hoy = date.today()
+
+    df_sheets, last_update = _load_from_sheets(sheet_name)
+    if (not df_sheets.empty and
+        not _is_data_stale(last_update, hours=24) and
+        fecha_fin == hoy):
+        print(f"[get_campanas_edad] Datos frescos de Sheets ({last_update}) para hoy - USANDO CACHE")
+        df_sheets = df_sheets.drop(columns=["updated_at"], errors="ignore")
+        for col in ["gasto", "leads"]:
+            df_sheets[col] = pd.to_numeric(df_sheets[col], errors="coerce").fillna(0)
+        return df_sheets
+
+    print(f"[get_campanas_edad] Refrescando desde Supermetrics para {fecha_inicio} a {fecha_fin}...")
+    df = _query_supermetrics_edad(fecha_inicio, fecha_fin)
+    if df.empty:
+        print(f"[get_campanas_edad] Supermetrics sin datos para {fecha_inicio} a {fecha_fin}")
+        return pd.DataFrame(columns=["pais", "campaign_id", "campana", "edad", "gasto", "leads"])
+
+    resultado = (
+        df.groupby(["pais", "campaign_id", "campana", "edad"])
+        .agg(gasto=("gasto", "sum"), leads=("leads", "sum"))
+        .reset_index()
+    )
+
+    if fecha_fin == hoy:
+        resultado_guardar = resultado.copy()
+        resultado_guardar["updated_at"] = datetime.now().isoformat()
+        _save_to_sheets(resultado_guardar, sheet_name)
+        print(f"[get_campanas_edad] Guardados datos de hoy en Sheets")
+
+    return resultado[["pais", "campaign_id", "campana", "edad", "gasto", "leads"]]

@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import streamlit as st
 from datetime import date, timedelta
 
-from data.connector import get_resumen_por_pais, get_campanas, get_campanas_genero
+from data.connector import get_resumen_por_pais, get_campanas, get_campanas_genero, get_campanas_edad
 from components.charts import render_kpi_cards, render_tabla_mensual
 from components.campanas import render_campanas
 from components.genero import render_campanas_genero
@@ -89,6 +89,7 @@ with st.spinner("Cargando datos de Meta Ads... (20-30 seg)"):
     df_resumen  = get_resumen_por_pais(fecha_inicio, fecha_fin)
     df_campanas = get_campanas(fecha_inicio, fecha_fin)
     df_genero   = get_campanas_genero(fecha_inicio, fecha_fin)
+    df_edad     = get_campanas_edad(fecha_inicio, fecha_fin)
 
 if df_resumen.empty:
     st.warning("Sin datos para el período seleccionado. Prueba con 'Últimos 7 días'.")
@@ -114,4 +115,4 @@ with tab3:
             "País", ["Todos"] + list(PAISES.keys()),
             key="pais_genero", label_visibility="collapsed",
         )
-    render_campanas_genero(df_genero, pais_genero_sel)
+    render_campanas_genero(df_genero, pais_genero_sel, df_edad)

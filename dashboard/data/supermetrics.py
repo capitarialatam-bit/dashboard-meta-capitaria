@@ -266,6 +266,41 @@ def _query_genero(fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataF
     return df[["pais", "campaign_id", "campana", "gender", "gasto", "leads"]]
 
 
+def _query_edad(fecha_inicio: date, fecha_fin: date, api_key: str) -> pd.DataFrame:
+    """
+    Desglose por campaña y edad (breakdown 'age' de Meta Ads: 18-24, 25-34,
+    35-44, 45-54, 55-64, 65+, Unknown).
+
+    Llamada independiente de _query_base y de _query_genero por la misma
+    razón: agregar otra dimensión de breakdown multiplica las filas por
+    campaña y podría superar max_rows en rangos largos.
+    """
+    df = _run_query(
+        ["adcampaign_id", "adcampaign_name", "adset_name", "age", "cost_usd",
+         "onsite_conversion.lead_grouped", "offsite_conversions_fb_pixel_lead"],
+        fecha_inicio, fecha_fin, api_key,
+    )
+    if df.empty:
+        return df
+    df = df.rename(columns={
+        "Campaign ID":       "campaign_id",
+        "Campaign name":     "campana",
+        "Ad set name":       "adset",
+        "Age":               "edad",
+        "Cost (USD)":        "gasto",
+        "On-Facebook leads": "leads_form",
+        "Website leads":     "leads_web",
+    })
+    df["gasto"]       = pd.to_numeric(df["gasto"],      errors="coerce").fillna(0)
+    df["leads_form"]  = pd.to_numeric(df["leads_form"], errors="coerce").fillna(0)
+    df["leads_web"]   = pd.to_numeric(df["leads_web"],  errors="coerce").fillna(0)
+    df["leads"]       = (df["leads_form"] + df["leads_web"]).astype(int)
+    df["pais"]        = df.apply(lambda r: detectar_pais(r["campana"], r["adset"]), axis=1)
+    df["campaign_id"] = df["campaign_id"].astype(str)
+    df["edad"]        = df["edad"].astype(str).str.strip()
+    return df[["pais", "campaign_id", "campana", "edad", "gasto", "leads"]]
+
+
 def query_rendimiento(fecha_inicio: date, fecha_fin: date, api_key: str = "") -> pd.DataFrame:
     """Rendimiento por anuncio con creativo, métricas y formato condicional."""
     if not api_key:

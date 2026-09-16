@@ -5,7 +5,12 @@ from data.campaign_categories import categoria_de_campania
 
 COLOR_HOMBRES = "#6aaad4"
 COLOR_MUJERES = "#d4b06a"
-COLOR_OTROS   = "#888888"
+COLOR_EDAD    = "#9b8fd4"
+
+# Rangos de edad tal como los muestra Meta Ads Manager. Cualquier otro valor
+# (ej. "Unknown") se trata como edad no identificada — no se inventa un rango.
+RANGOS_EDAD = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"]
+_RANGO_RANK = {r: i for i, r in enumerate(RANGOS_EDAD)}
 
 SORT_OPTIONS = {
     "Importe gastado (desc.)": ("gasto_total", False),
@@ -17,6 +22,7 @@ SORT_OPTIONS = {
     "Leads mujeres":           ("leads_m", False),
     "% mujeres":               ("pct_m", False),
     "CPL mujeres":             ("cpl_m", True),
+    "Edad predominante":       ("edad_rank", True),
     "Total Leads":             ("leads_total", False),
     "CPL Total":               ("cpl_total", True),
 }
@@ -74,11 +80,44 @@ def _agregar_por_campania(df_pais: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(filas)
 
 
-def render_campanas_genero(df: pd.DataFrame, pais: str):
+def _dominante_por_campania(df_edad_pais: pd.DataFrame) -> pd.DataFrame:
+    """Para cada campaign_id, el rango de edad con más leads (excluyendo
+    'Unknown'/no identificado — nunca se muestra eso como 'predominante').
+    El % es sobre el total de leads de la campaña con edad identificada o no
+    (mismo criterio que género: el denominador es el total real)."""
+    filas = []
+    for campaign_id, grupo in df_edad_pais.groupby("campaign_id"):
+        # Agregar por rango de edad primero — grupo puede traer varias filas
+        # por rango (ej. una por ad set o por fecha) si el llamador no
+        # consolidó antes; sumar mal contaría cada fila como si fuera el
+        # total del rango y podría elegir un rango que no es el real ganador.
+        por_edad = grupo.groupby("edad").agg(gasto=("gasto", "sum"), leads=("leads", "sum")).reset_index()
+        total = por_edad["leads"].sum()
+        conocidos = por_edad[por_edad["edad"].isin(RANGOS_EDAD)]
+        if conocidos.empty or total <= 0:
+            filas.append({"campaign_id": campaign_id, "edad_dominante": None,
+                           "leads_edad": 0, "pct_edad": 0.0, "cpl_edad": None, "edad_rank": len(RANGOS_EDAD)})
+            continue
+        top = conocidos.loc[conocidos["leads"].idxmax()]
+        filas.append({
+            "campaign_id": campaign_id,
+            "edad_dominante": top["edad"],
+            "leads_edad": top["leads"],
+            "pct_edad": _pct(top["leads"], total),
+            "cpl_edad": _cpl(top["gasto"], top["leads"]),
+            "edad_rank": _RANGO_RANK.get(top["edad"], len(RANGOS_EDAD)),
+        })
+    return pd.DataFrame(filas)
+
+
+def render_campanas_genero(df: pd.DataFrame, pais: str, df_edad: pd.DataFrame = None):
     """
-    df   : resultado de get_campanas_genero (columnas pais, campaign_id, campana,
-           gender, gasto, leads) — ya consolidado por campaign_id en el connector.
-    pais : 'Todos' o una clave de config.PAISES (Chile/Mexico/Peru/Uruguay).
+    df      : resultado de get_campanas_genero (columnas pais, campaign_id, campana,
+              gender, gasto, leads) — ya consolidado por campaign_id en el connector.
+    pais    : 'Todos' o una clave de config.PAISES (Chile/Mexico/Peru/Uruguay).
+    df_edad : resultado de get_campanas_edad (columnas pais, campaign_id, campana,
+              edad, gasto, leads). Opcional — si no hay datos, la columna Edad
+              muestra "—" sin romper el resto de la tabla.
     """
     COLS_REQUERIDAS = {"pais", "campaign_id", "campana", "gender", "gasto", "leads"}
     tiene_datos = not df.empty and COLS_REQUERIDAS.issubset(df.columns)
@@ -97,6 +136,24 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
         st.info("No hay datos de género disponibles para el período seleccionado.")
         return
 
+    # Edad predominante por campaña — merge por campaign_id, tolera ausencia total.
+    COLS_EDAD = {"pais", "campaign_id", "campana", "edad", "gasto", "leads"}
+    if df_edad is not None and not df_edad.empty and COLS_EDAD.issubset(df_edad.columns):
+        df_edad_pais = df_edad if pais == "Todos" else df_edad[df_edad["pais"] == pais]
+        df_dom = _dominante_por_campania(df_edad_pais) if not df_edad_pais.empty else pd.DataFrame()
+    else:
+        df_dom = pd.DataFrame()
+
+    if not df_dom.empty:
+        df_agg = df_agg.merge(df_dom, on="campaign_id", how="left")
+        df_agg["edad_rank"] = df_agg["edad_rank"].fillna(len(RANGOS_EDAD))
+    else:
+        df_agg["edad_dominante"] = None
+        df_agg["leads_edad"] = 0
+        df_agg["pct_edad"] = 0.0
+        df_agg["cpl_edad"] = None
+        df_agg["edad_rank"] = len(RANGOS_EDAD)
+
     # ── Totales del período filtrado ────────────────────────────────────────
     gasto_total   = df_agg["gasto_total"].sum()
     leads_total   = int(df_agg["leads_total"].sum())
@@ -104,16 +161,13 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
     leads_h_tot   = int(df_agg["leads_h"].sum())
     gasto_m_tot   = df_agg["gasto_m"].sum()
     leads_m_tot   = int(df_agg["leads_m"].sum())
-    leads_o_tot   = int(df_agg["leads_o"].sum())
-    gasto_o_tot   = df_agg["gasto_o"].sum()
+    # gasto_o/leads_o (género no identificado) ya están sumados dentro de
+    # gasto_total/leads_total — no se desglosan aparte en la UI.
 
     pct_h_tot = _pct(leads_h_tot, leads_total)
     pct_m_tot = _pct(leads_m_tot, leads_total)
-    pct_o_tot = _pct(leads_o_tot, leads_total)
     cpl_h_tot = _cpl(gasto_h_tot, leads_h_tot)
     cpl_m_tot = _cpl(gasto_m_tot, leads_m_tot)
-
-    hay_otros = leads_o_tot > 0 or gasto_o_tot > 0
 
     # ── KPI cards ─────────────────────────────────────────────────────────────
     def _card(col, label, valor, sub=None, color="white"):
@@ -147,12 +201,10 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
     segmentos = (
         f"<div style='background:{COLOR_HOMBRES};width:{pct_h_tot}%;'></div>"
         f"<div style='background:{COLOR_MUJERES};width:{pct_m_tot}%;'></div>"
-        + (f"<div style='background:{COLOR_OTROS};width:{pct_o_tot}%;'></div>" if hay_otros else "")
     )
     leyenda = (
         f"<span style='color:{COLOR_HOMBRES};'>● Hombres {pct_h_tot:.0f}%</span>"
         f"<span style='color:{COLOR_MUJERES};'>● Mujeres {pct_m_tot:.0f}%</span>"
-        + (f"<span style='color:{COLOR_OTROS};'>● Otros / Sin identificar {pct_o_tot:.0f}%</span>" if hay_otros else "")
     )
     st.markdown(
         f"""
@@ -232,10 +284,6 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
     # ── Tabla ─────────────────────────────────────────────────────────────────
     filas = ""
     for i, row in df_sorted.iterrows():
-        otros_cell = (
-            f"<td style='color:{COLOR_OTROS};font-size:0.8rem;'>{int(row['leads_o'])} · {row['pct_o']:.0f}%</td>"
-            if hay_otros else ""
-        )
         id_badge = ""
         if row["campana"] in nombres_duplicados:
             cid = str(row["campaign_id"])
@@ -243,6 +291,13 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
                 f" <span style='background:#1a2a3a;color:#6aaad4;font-size:0.65rem;"
                 f"padding:2px 6px;border-radius:4px;font-weight:600;'>ID …{cid[-6:]}</span>"
             )
+        if row["edad_dominante"]:
+            edad_cell = (
+                f"<td style='color:{COLOR_EDAD};'>{row['edad_dominante']} · {row['pct_edad']:.0f}%"
+                f"<br><span style='color:#777;font-size:0.72rem;'>CPL {_cpl_str(row['cpl_edad'])}</span></td>"
+            )
+        else:
+            edad_cell = f"<td style='color:#666;'>—</td>"
         filas += (
             f"<tr>"
             f"<td style='color:#888;'>{i+1}.</td>"
@@ -253,13 +308,12 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
             f"<br><span style='color:#777;font-size:0.72rem;'>CPL {_cpl_str(row['cpl_h'])}</span></td>"
             f"<td style='color:{COLOR_MUJERES};'>{int(row['leads_m'])} · {row['pct_m']:.0f}%"
             f"<br><span style='color:#777;font-size:0.72rem;'>CPL {_cpl_str(row['cpl_m'])}</span></td>"
-            f"{otros_cell}"
+            f"{edad_cell}"
             f"<td style='color:white;font-weight:600;'>{int(row['leads_total'])}</td>"
             f"<td style='color:white;'>{_cpl_str(row['cpl_total'])}</td>"
             f"</tr>"
         )
 
-    otros_th = "<th>Otros</th>" if hay_otros else ""
     html = (
         "<style>"
         "body{margin:0;background:#0e1117;}"
@@ -277,7 +331,7 @@ def render_campanas_genero(df: pd.DataFrame, pais: str):
         "<th>Gastado</th>"
         "<th>Hombres</th>"
         "<th>Mujeres</th>"
-        f"{otros_th}"
+        "<th>Edad</th>"
         "<th>Total Leads</th>"
         "<th>CPL Total</th>"
         "</tr></thead>"
